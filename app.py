@@ -45,40 +45,60 @@ if section == "Home":
 elif section == "Summary":
     st.title("📈 User Summary Insights")
 
-    if df is None:
-        st.warning("Please upload data in the Home section first.")
+    if st.session_state['df'] is None:
+        st.warning("⚠️ Please upload a file in the Home section.")
     else:
-        st.subheader("🧩 Detected Columns")
-        st.write(", ".join(df.columns))
+        df = st.session_state['df']
 
-        st.markdown("### 📊 Summary Statistics")
+        st.markdown("### 📌 Key Columns Detected")
+        st.write(", ".join(df.columns.tolist()))
 
+        # --- Metrics ---
+        st.markdown("### 📊 Overview Metrics")
         col1, col2, col3 = st.columns(3)
+
         with col1:
-            st.metric("Total Users", len(df))
+            st.metric("👥 Total Users", len(df))
 
         with col2:
-            churn_avg = round(df['churn_score'].mean(), 2)
-            st.metric("Average Churn Score", churn_avg)
+            avg_churn = round(df['churn_score'].mean(), 2)
+            st.metric("📉 Avg. Churn Score", avg_churn)
 
         with col3:
-            high_risk = df[df['risk_level'] == 'High']
-            st.metric("High Risk Users", len(high_risk))
+            high_risk_count = df[df['risk_level'] == 'High'].shape[0]
+            st.metric("🚨 High Risk Users", high_risk_count)
 
-        st.markdown("### 🧠 Segment-wise Breakdown")
-        st.write("#### Gender Distribution")
-        gender_dist = df['gender'].value_counts().reset_index()
-        gender_dist.columns = ['Gender', 'Count']
-        fig1 = px.bar(gender_dist, x='Gender', y='Count', color='Gender')
-        st.plotly_chart(fig1, use_container_width=True)
+        # --- Charts ---
+        st.markdown("### 📊 Visual Insights")
+        col4, col5 = st.columns(2)
 
-        st.write("#### Risk Level Breakdown")
-        risk_dist = df['risk_level'].value_counts().reset_index()
-        risk_dist.columns = ['Risk Level', 'Users']
-        fig2 = px.pie(risk_dist, values='Users', names='Risk Level', hole=0.4)
-        st.plotly_chart(fig2, use_container_width=True)
+        with col4:
+            st.write("#### Gender Distribution")
+            gender_dist = df['gender'].value_counts().reset_index()
+            gender_dist.columns = ['Gender', 'Count']
+            fig_gender = px.bar(gender_dist, x='Gender', y='Count', color='Gender', title="Users by Gender")
+            st.plotly_chart(fig_gender, use_container_width=True)
 
-        st.markdown("### 🔍 Sample Records")
+        with col5:
+            st.write("#### Risk Level Distribution")
+            risk_dist = df['risk_level'].value_counts().reset_index()
+            risk_dist.columns = ['Risk Level', 'Users']
+            fig_risk = px.pie(risk_dist, values='Users', names='Risk Level', title="Risk Level Share", hole=0.3)
+            st.plotly_chart(fig_risk, use_container_width=True)
+
+        # --- Top Risk Users ---
+        st.markdown("### 🔥 Top 5 Users at Churn Risk")
+        top_risk_users = df.sort_values(by='churn_score', ascending=False).head(5)
+        st.dataframe(top_risk_users[['user_id', 'churn_score', 'risk_level', 'nudge_recommendation']])
+
+        # --- Nudge Recommendation Summary ---
+        st.markdown("### 📬 Nudge Recommendation Breakdown")
+        nudge_summary = df['nudge_recommendation'].value_counts().reset_index()
+        nudge_summary.columns = ['Nudge Recommendation', 'User Count']
+        st.dataframe(nudge_summary)
+
+        # --- Sample Data ---
+        st.markdown("### 🔍 Sample Data Preview")
         st.dataframe(df.head())
 
 
