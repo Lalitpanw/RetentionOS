@@ -29,6 +29,15 @@ if section == "Home":
             st.success("✅ File uploaded successfully!")
             st.dataframe(df.head())
 
+            # --- Download button ---
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="⬇️ Download This Data as CSV",
+                data=csv,
+                file_name='retention_data.csv',
+                mime='text/csv'
+            )
+
         except Exception as e:
             st.error(f"Error: {e}")
 
