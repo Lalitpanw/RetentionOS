@@ -45,18 +45,42 @@ if section == "Home":
 elif section == "Summary":
     st.title("📈 User Summary Insights")
 
-    df = st.session_state['df']
     if df is None:
-        st.warning("Please upload a file first in the Home section.")
+        st.warning("Please upload data in the Home section first.")
     else:
-        st.subheader("📊 Key Columns Detected:")
-        st.write(list(df.columns))
+        st.subheader("🧩 Detected Columns")
+        st.write(", ".join(df.columns))
 
-        st.subheader("📌 Sample Data")
+        st.markdown("### 📊 Summary Statistics")
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Users", len(df))
+
+        with col2:
+            churn_avg = round(df['churn_score'].mean(), 2)
+            st.metric("Average Churn Score", churn_avg)
+
+        with col3:
+            high_risk = df[df['risk_level'] == 'High']
+            st.metric("High Risk Users", len(high_risk))
+
+        st.markdown("### 🧠 Segment-wise Breakdown")
+        st.write("#### Gender Distribution")
+        gender_dist = df['gender'].value_counts().reset_index()
+        gender_dist.columns = ['Gender', 'Count']
+        fig1 = px.bar(gender_dist, x='Gender', y='Count', color='Gender')
+        st.plotly_chart(fig1, use_container_width=True)
+
+        st.write("#### Risk Level Breakdown")
+        risk_dist = df['risk_level'].value_counts().reset_index()
+        risk_dist.columns = ['Risk Level', 'Users']
+        fig2 = px.pie(risk_dist, values='Users', names='Risk Level', hole=0.4)
+        st.plotly_chart(fig2, use_container_width=True)
+
+        st.markdown("### 🔍 Sample Records")
         st.dataframe(df.head())
 
-        st.subheader("🔍 Null Values")
-        st.write(df.isnull().sum())
 
 # --- DASHBOARD SECTION ---
 elif section == "Dashboard":
