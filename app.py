@@ -50,9 +50,6 @@ elif section == "Summary":
     else:
         df = st.session_state['df']
 
-        st.markdown("### 📌 Key Columns Detected")
-        st.write(", ".join(df.columns.tolist()))
-
         # --- Metrics ---
         st.markdown("### 📊 Overview Metrics")
         col1, col2, col3 = st.columns(3)
