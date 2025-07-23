@@ -6,7 +6,11 @@ st.set_page_config(page_title="RetentionOS", layout="wide")
 st.title("📊 RetentionOS – Upload User Data")
 
 uploaded_file = st.file_uploader("Upload your user Excel/CSV file")
-if uploaded_file is not None:
+if uploaded_file.name.endswith('.csv'):
     df = pd.read_csv(uploaded_file)
-    st.write("✅ File uploaded successfully!")
-    st.dataframe(df.head())
+elif uploaded_file.name.endswith(('.xls', '.xlsx')):
+    df = pd.read_excel(uploaded_file)
+else:
+    st.error("Unsupported file format. Please upload a CSV or Excel file.")
+    st.stop()
+
