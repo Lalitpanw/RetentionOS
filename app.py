@@ -24,7 +24,7 @@ Built by **Lalit Panwar**
 
 # Initialize dataframe
 
-if "df" not in st.session\_state:
+if "df" not in st.session_state:
 st.session\_state.df = None
 
 # Home Section
