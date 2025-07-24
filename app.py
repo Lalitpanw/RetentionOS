@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set\_page\_config(page\_title="RetentionOS", layout="wide")
+st.set_page_config(page_title="RetentionOS", layout="wide")
 
 # Sidebar menu without About
 
