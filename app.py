@@ -2,30 +2,40 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Set page config
+# Page setup
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
-# Sidebar navigation
-st.sidebar.title("📂 Navigation")
-section = st.sidebar.radio("Go to", ["Home", "Summary", "Dashboard", "Segments", "About RetentionOS"])
-st.sidebar.markdown("<br><br><br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
+# Sidebar sections
+top_sections = ["Home", "Summary", "Dashboard", "Segments"]
+bottom_section = "About RetentionOS"
 
-# File upload
+# Sidebar layout
+selected_top = st.sidebar.radio("📂 Navigation", top_sections)
+st.sidebar.markdown("---")
+go_about = st.sidebar.button("🔍 About RetentionOS")
+
+# File Upload Setup
 if "df" not in st.session_state:
     st.session_state.df = None
 
-if section == "Home":
+# Upload logic
+if selected_top == "Home":
     st.title("RetentionOS – A User Turning Point")
     uploaded_file = st.file_uploader("Upload a CSV or Excel file", type=["csv", "xlsx"])
     if uploaded_file:
-        if uploaded_file.name.endswith(".csv"):
-            st.session_state.df = pd.read_csv(uploaded_file)
-        elif uploaded_file.name.endswith((".xls", ".xlsx")):
-            st.session_state.df = pd.read_excel(uploaded_file)
-        st.success("✅ File uploaded successfully!")
-        st.dataframe(st.session_state.df.head())
+        try:
+            if uploaded_file.name.endswith(".csv"):
+                st.session_state.df = pd.read_csv(uploaded_file)
+            elif uploaded_file.name.endswith((".xls", ".xlsx")):
+                st.session_state.df = pd.read_excel(uploaded_file)
+            st.success("✅ File uploaded successfully!")
+            st.dataframe(st.session_state.df.head())
+        except Exception as e:
+            st.error("❌ Error reading file. Please check format or required libraries.")
+            st.exception(e)
 
-elif section == "Summary":
+# Summary
+elif selected_top == "Summary":
     st.title("📈 User Summary Insights")
     if st.session_state.df is not None:
         st.subheader("📌 Key Columns Detected")
@@ -35,7 +45,8 @@ elif section == "Summary":
     else:
         st.warning("Please upload a file from the Home page.")
 
-elif section == "Dashboard":
+# Dashboard
+elif selected_top == "Dashboard":
     st.title("📊 Dashboard Metrics")
     if st.session_state.df is not None:
         df = st.session_state.df
@@ -45,7 +56,8 @@ elif section == "Dashboard":
     else:
         st.warning("Please upload a file from the Home page.")
 
-elif section == "Segments":
+# Segments
+elif selected_top == "Segments":
     st.title("📌 Segmentation Insights")
     if st.session_state.df is not None:
         df = st.session_state.df
@@ -56,7 +68,8 @@ elif section == "Segments":
     else:
         st.warning("Please upload a file from the Home page.")
 
-elif section == "About RetentionOS":
+# About section triggered by button
+if go_about:
     st.title("About RetentionOS")
     st.markdown("""
     RetentionOS is a lightweight churn prediction and nudging assistant built for fast-moving product teams at early-stage startups.
