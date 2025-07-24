@@ -4,9 +4,9 @@ import plotly.express as px
 
 st.set\_page\_config(page\_title="RetentionOS", layout="wide")
 
-# ---- Sidebar Navigation ----
+# Sidebar with logo and navigation
 
-st.sidebar.image("[https://your-image-host.com/retentionos-logo.png](https://your-image-host.com/retentionos-logo.png)", width=120)  # Replace with your real logo URL
+st.sidebar.image("[https://your-image-host.com/retentionos-logo.png](https://your-image-host.com/retentionos-logo.png)", width=120)  # Replace with your actual logo URL
 section = st.sidebar.radio("📂 Navigate", \["Home", "Summary", "Dashboard", "Segments", "About"])
 
 st.sidebar.markdown("---")
@@ -22,12 +22,12 @@ st.sidebar.markdown("""
 Built by **Lalit Panwar**
 """)
 
-# Store data
+# Initialize dataframe
 
 if "df" not in st.session\_state:
 st.session\_state.df = None
 
-# ---- Home Page ----
+# Home Section
 
 if section == "Home":
 st.title("📊 RetentionOS – Upload User Data")
@@ -35,7 +35,7 @@ uploaded\_file = st.file\_uploader("Upload your user Excel/CSV file")
 
 ```
 if uploaded_file:
-    if uploaded_file.name.endswith('.csv'):
+    if uploaded_file.name.endswith(".csv"):
         df = pd.read_csv(uploaded_file)
     elif uploaded_file.name.endswith(('.xls', '.xlsx')):
         df = pd.read_excel(uploaded_file)
@@ -52,7 +52,7 @@ if uploaded_file:
     st.download_button("📥 Download Clean File", df.to_csv(index=False), file_name="retention_clean_data.csv")
 ```
 
-# ---- Summary ----
+# Summary Section
 
 elif section == "Summary":
 st.title("📈 Retention Summary Dashboard")
@@ -89,7 +89,7 @@ else:
         ))
 ```
 
-# ---- Dashboard ----
+# Dashboard Section
 
 elif section == "Dashboard":
 st.title("📊 Dashboard Metrics")
@@ -109,7 +109,7 @@ else:
     st.plotly_chart(fig)
 ```
 
-# ---- Segments ----
+# Segments Section
 
 elif section == "Segments":
 st.title("📦 User Segments")
@@ -131,13 +131,13 @@ else:
     )
 ```
 
-# ---- About ----
+# About Section
 
 elif section == "About":
 st.title("🔍 About RetentionOS")
 
 ```
-st.image("https://your-image-host.com/retentionos-logo.png", width=200)  # Replace with real logo URL
+st.image("https://your-image-host.com/retentionos-logo.png", width=200)  # Replace with your actual logo URL
 
 st.markdown("""
 ### 🧠 What is RetentionOS?
