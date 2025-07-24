@@ -2,59 +2,53 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Set wide layout and page title
+# Page setup
 
 st.set\_page\_config(page\_title="RetentionOS", layout="wide")
 
-# Custom colorful header
+# App Title
 
-st.markdown(""" <h1 style='text-align: center; color: #f63366; text-shadow: 1px 1px 2px #999;'>
+st.markdown(""" <h1 style='text-align: center; color: #f63366; text-shadow: 1px 1px 2px gray;'>
 RetentionOS – A User Turning Point </h1>
 """, unsafe\_allow\_html=True)
 
 # Sidebar navigation
 
-st.sidebar.markdown("## 📂 Navigate")
-section = st.sidebar.radio("", \["Home", "Summary", "Dashboard", "Segments"])
+menu = \["Home", "Summary", "Dashboard", "Segments", "About"]
+page = st.sidebar.radio("📂 Navigate", menu)
 
-# About button at bottom of sidebar
-
-st.sidebar.markdown(""" <hr style='margin:20px 0;'> <a href='?section=About' style='text-decoration:none;'>🔍 About</a>
-""", unsafe\_allow\_html=True)
-
-# Initialize session
+# Session state setup
 
 if "df" not in st.session\_state:
 st.session\_state.df = None
 
-# ---- Home ----
+# Home Page
 
-if section == "Home":
+if page == "Home":
 st.header("📊 Upload User Data")
 uploaded\_file = st.file\_uploader("Upload a CSV or Excel file")
 
 ```
 if uploaded_file:
-    if uploaded_file.name.endswith(".csv"):
-        df = pd.read_csv(uploaded_file)
-    elif uploaded_file.name.endswith(('.xls', '.xlsx')):
-        df = pd.read_excel(uploaded_file)
-    else:
-        st.error("Please upload a CSV or Excel file only.")
-        st.stop()
+    try:
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
+        st.session_state.df = df
+        st.success("✅ File uploaded successfully!")
 
-    st.session_state.df = df
-    st.success("✅ File uploaded successfully!")
+        with st.expander("🔍 Preview Uploaded Data"):
+            st.dataframe(df)
 
-    with st.expander("🔍 Preview Uploaded Data"):
-        st.dataframe(df)
-
-    st.download_button("📥 Download Clean File", df.to_csv(index=False), file_name="retention_clean_data.csv")
+        st.download_button("📥 Download Clean File", df.to_csv(index=False), file_name="retention_clean_data.csv")
+    except Exception as e:
+        st.error(f"Error reading file: {e}")
 ```
 
-# ---- Summary ----
+# Summary Page
 
-elif section == "Summary":
+elif page == "Summary":
 st.header("📈 Retention Summary")
 df = st.session\_state.df
 
@@ -86,9 +80,9 @@ else:
                                labels={"index": "Nudge Type", "nudge_recommendation": "Count"}))
 ```
 
-# ---- Dashboard ----
+# Dashboard Page
 
-elif section == "Dashboard":
+elif page == "Dashboard":
 st.header("📊 Dashboard")
 df = st.session\_state.df
 
@@ -105,9 +99,9 @@ else:
     st.plotly_chart(px.histogram(df, x="churn_score", nbins=20))
 ```
 
-# ---- Segments ----
+# Segments Page
 
-elif section == "Segments":
+elif page == "Segments":
 st.header("📦 User Segments")
 df = st.session\_state.df
 
@@ -124,15 +118,14 @@ else:
                        file_name=f"{risk.lower()}_risk_users.csv")
 ```
 
-# ---- About ----
+# About Page
 
-if st.query\_params.get("section") == "About":
-st.title("🔍 About RetentionOS")
+elif page == "About":
+st.header("🔍 About RetentionOS")
+st.markdown("""
+\### 🧠 What is RetentionOS?
 
 ```
-st.markdown("""
-### 🧠 What is RetentionOS?
-
 **RetentionOS** is a lightweight churn prediction and nudging assistant designed for fast-moving product teams at early-stage startups.
 
 It empowers you to:
