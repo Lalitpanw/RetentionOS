@@ -2,21 +2,19 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Page config
+# Page configuration
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
-# Sidebar layout
-top_sections = ["Home", "Summary", "Dashboard", "Segments"]
-selected_top = st.sidebar.radio("📂 Navigation", top_sections)
-st.sidebar.markdown("---")
-go_about = st.sidebar.button("🔍 About RetentionOS")
+# Sidebar navigation (About included in main radio list)
+menu = ["Home", "Summary", "Dashboard", "Segments", "About"]
+section = st.sidebar.radio("📂 Navigation", menu)
 
-# Session state for data
+# File uploader common
 if "df" not in st.session_state:
     st.session_state.df = None
 
-# Home section: Upload data
-if selected_top == "Home":
+# --- HOME ---
+if section == "Home":
     st.title("RetentionOS – A User Turning Point")
     uploaded_file = st.file_uploader("Upload a CSV or Excel file", type=["csv", "xlsx"])
     if uploaded_file:
@@ -24,15 +22,16 @@ if selected_top == "Home":
             if uploaded_file.name.endswith(".csv"):
                 st.session_state.df = pd.read_csv(uploaded_file)
             elif uploaded_file.name.endswith((".xls", ".xlsx")):
-                st.session_state.df = pd.read_excel(uploaded_file)
+                import openpyxl  # Required for Excel
+                st.session_state.df = pd.read_excel(uploaded_file, engine="openpyxl")
             st.success("✅ File uploaded successfully!")
             st.dataframe(st.session_state.df.head())
         except Exception as e:
-            st.error("❌ Error reading file. Please check format or install required packages.")
+            st.error("❌ Could not read the uploaded file.")
             st.exception(e)
 
-# Summary section
-elif selected_top == "Summary":
+# --- SUMMARY ---
+elif section == "Summary":
     st.title("📈 User Summary Insights")
     if st.session_state.df is not None:
         st.subheader("📌 Sample Data")
@@ -40,18 +39,16 @@ elif selected_top == "Summary":
     else:
         st.warning("⚠️ Please upload a file from the Home page.")
 
-# Dashboard section
-elif selected_top == "Dashboard":
+# --- DASHBOARD ---
+elif section == "Dashboard":
     st.title("📊 Dashboard Metrics")
     if st.session_state.df is not None:
         df = st.session_state.df
 
-        # Metrics
         st.metric("Total Users", len(df))
         st.metric("High Risk Users", df[df["risk_level"] == "High"].shape[0])
         st.metric("Average Churn Score", round(df["churn_score"].mean(), 2))
 
-        # Charts
         st.subheader("Churn Score Distribution")
         fig1 = px.histogram(df, x="churn_score", nbins=20, title="Churn Score Histogram")
         st.plotly_chart(fig1, use_container_width=True)
@@ -63,12 +60,11 @@ elif selected_top == "Dashboard":
         st.subheader("Cart Value by Risk Level")
         fig3 = px.box(df, x="risk_level", y="cart_value", title="Cart Value vs Risk Level")
         st.plotly_chart(fig3, use_container_width=True)
-
     else:
         st.warning("⚠️ Please upload a file from the Home page.")
 
-# Segments section
-elif selected_top == "Segments":
+# --- SEGMENTS ---
+elif section == "Segments":
     st.title("📌 Segmentation Insights")
     if st.session_state.df is not None:
         df = st.session_state.df
@@ -79,8 +75,8 @@ elif selected_top == "Segments":
     else:
         st.warning("⚠️ Please upload a file from the Home page.")
 
-# About Section
-if go_about:
+# --- ABOUT ---
+elif section == "About":
     st.title("About RetentionOS")
     st.markdown("""
     **RetentionOS** is a lightweight churn prediction and nudging assistant built for fast-moving product teams at early-stage startups.
