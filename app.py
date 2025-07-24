@@ -2,136 +2,160 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# --- Page Setup ---
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
-# --- Sidebar Navigation ---
-st.sidebar.title("🧭 Navigation")
-section = st.sidebar.radio("Go to", ["Home", "Summary", "Dashboard", "Segmentation Insights"])
+# Sidebar navigation
+section = st.sidebar.radio("📂 Navigate", ["Home", "Summary", "Dashboard", "Segments", "About"])
 
-# --- Session State for Data ---
-if 'df' not in st.session_state:
-    st.session_state['df'] = None
+# Global variable to store data
+if "df" not in st.session_state:
+    st.session_state.df = None
 
-# --- HOME SECTION ---
+# -------------------------------------
+# 📥 HOME – Upload Data
+# -------------------------------------
 if section == "Home":
     st.title("📊 RetentionOS – Upload User Data")
-    uploaded_file = st.file_uploader("Upload your user Excel/CSV file", type=["csv", "xlsx"])
+    uploaded_file = st.file_uploader("Upload your user Excel/CSV file")
 
     if uploaded_file:
-        try:
-            if uploaded_file.name.endswith('.csv'):
-                df = pd.read_csv(uploaded_file)
-            else:
-                df = pd.read_excel(uploaded_file)
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+        elif uploaded_file.name.endswith(('.xls', '.xlsx')):
+            df = pd.read_excel(uploaded_file)
+        else:
+            st.error("Unsupported file format. Please upload a CSV or Excel file.")
+            st.stop()
 
-            st.session_state['df'] = df
-            st.success("✅ File uploaded successfully!")
-            st.dataframe(df.head())
+        st.session_state.df = df
+        st.success("✅ File uploaded successfully!")
 
-            # --- Download button ---
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="⬇️ Download This Data as CSV",
-                data=csv,
-                file_name='retention_data.csv',
-                mime='text/csv'
-            )
+        with st.expander("🔍 Preview Uploaded Data"):
+            st.dataframe(df)
 
-        except Exception as e:
-            st.error(f"Error: {e}")
+        st.download_button("📥 Download Clean File", df.to_csv(index=False), file_name="retention_clean_data.csv")
 
-# --- SUMMARY SECTION ---
+# -------------------------------------
+# 📈 SUMMARY – Key Insights
+# -------------------------------------
 elif section == "Summary":
-    st.title("📈 User Summary Insights")
+    st.title("📈 Retention Summary Dashboard")
+    df = st.session_state.df
 
-    if st.session_state['df'] is None:
-        st.warning("⚠️ Please upload a file in the Home section.")
+    if df is None:
+        st.warning("Please upload a file in the Home section first.")
     else:
-        df = st.session_state['df']
-
-        # --- Metrics ---
-        st.markdown("### 📊 Overview Metrics")
         col1, col2, col3 = st.columns(3)
+        col1.metric("Total Users", len(df))
+        col2.metric("High Risk Users", (df["risk_level"] == "High").sum())
+        col3.metric("Average Churn Score", round(df["churn_score"].mean(), 2))
 
-        with col1:
-            st.metric("👥 Total Users", len(df))
+        st.markdown("### 🎯 Churn Risk Breakdown")
+        st.bar_chart(df["risk_level"].value_counts())
 
-        with col2:
-            avg_churn = round(df['churn_score'].mean(), 2)
-            st.metric("📉 Avg. Churn Score", avg_churn)
+        st.markdown("### 👥 Gender Split")
+        if "gender" in df.columns:
+            st.plotly_chart(px.pie(df, names="gender", title="Users by Gender"))
 
-        with col3:
-            high_risk_count = df[df['risk_level'] == 'High'].shape[0]
-            st.metric("🚨 High Risk Users", high_risk_count)
+        st.markdown("### 🔝 Top 5 High-Risk Users")
+        if "churn_score" in df.columns:
+            top_risky = df.sort_values(by="churn_score", ascending=False).head(5)
+            st.dataframe(top_risky[["user_id", "churn_score", "nudge_recommendation"]])
 
-        # --- Charts ---
-        st.markdown("### 📊 Visual Insights")
-        col4, col5 = st.columns(2)
+        st.markdown("### 💡 Nudge Recommendations")
+        if "nudge_recommendation" in df.columns:
+            st.plotly_chart(px.bar(
+                df["nudge_recommendation"].value_counts().reset_index(),
+                x="index", y="nudge_recommendation",
+                labels={"index": "Nudge Type", "nudge_recommendation": "Count"},
+                title="Nudge Recommendation Distribution"
+            ))
 
-        with col4:
-            st.write("#### Gender Distribution")
-            gender_dist = df['gender'].value_counts().reset_index()
-            gender_dist.columns = ['Gender', 'Count']
-            fig_gender = px.bar(gender_dist, x='Gender', y='Count', color='Gender', title="Users by Gender")
-            st.plotly_chart(fig_gender, use_container_width=True)
-
-        with col5:
-            st.write("#### Risk Level Distribution")
-            risk_dist = df['risk_level'].value_counts().reset_index()
-            risk_dist.columns = ['Risk Level', 'Users']
-            fig_risk = px.pie(risk_dist, values='Users', names='Risk Level', title="Risk Level Share", hole=0.3)
-            st.plotly_chart(fig_risk, use_container_width=True)
-
-        # --- Top Risk Users ---
-        st.markdown("### 🔥 Top 5 Users at Churn Risk")
-        top_risk_users = df.sort_values(by='churn_score', ascending=False).head(5)
-        st.dataframe(top_risk_users[['user_id', 'churn_score', 'risk_level', 'nudge_recommendation']])
-
-        # --- Nudge Recommendation Summary ---
-        st.markdown("### 📬 Nudge Recommendation Breakdown")
-        nudge_summary = df['nudge_recommendation'].value_counts().reset_index()
-        nudge_summary.columns = ['Nudge Recommendation', 'User Count']
-        st.dataframe(nudge_summary)
-
-        # --- Sample Data ---
-        st.markdown("### 🔍 Sample Data Preview")
-        st.dataframe(df.head())
-
-
-# --- DASHBOARD SECTION ---
+# -------------------------------------
+# 📊 DASHBOARD – Metrics View
+# -------------------------------------
 elif section == "Dashboard":
     st.title("📊 Dashboard Metrics")
-    df = st.session_state['df']
-    if df is None:
-        st.warning("Please upload a file first in the Home section.")
-    else:
-        total_users = df.shape[0]
-        high_risk = df[df['risk_level'] == 'High'].shape[0]
-        avg_churn = round(df['churn_score'].mean(), 2)
+    df = st.session_state.df
 
+    if df is None:
+        st.warning("Please upload a file in the Home section first.")
+    else:
         col1, col2, col3 = st.columns(3)
-        col1.metric("Total Users", total_users)
-        col2.metric("High Risk Users", high_risk)
-        col3.metric("Avg. Churn Score", avg_churn)
+        col1.metric("Total Users", len(df))
+        col2.metric("High Risk Users", (df["risk_level"] == "High").sum())
+        col3.metric("Average Churn Score", round(df["churn_score"].mean(), 2))
 
-        st.subheader("📉 Churn Score Distribution")
-        fig = px.histogram(df, x="churn_score", nbins=20, title="Churn Score Distribution")
-        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("### 📉 Churn Score Distribution")
+        fig = px.histogram(df, x="churn_score", nbins=20, title="Churn Score Histogram")
+        st.plotly_chart(fig)
 
-# --- SEGMENTATION INSIGHTS ---
-elif section == "Segmentation Insights":
-    st.title("🔍 Segmentation Insights")
-    df = st.session_state['df']
+# -------------------------------------
+# 🧠 SEGMENTS – Filtered Insights
+# -------------------------------------
+elif section == "Segments":
+    st.title("📦 User Segments")
+    df = st.session_state.df
+
     if df is None:
-        st.warning("Please upload a file first in the Home section.")
+        st.warning("Please upload a file in the Home section first.")
     else:
-        seg_col = st.selectbox("Select column to segment", ["gender", "price_range", "risk_level"])
+        risk = st.selectbox("Select Risk Level", options=df["risk_level"].unique())
+        filtered = df[df["risk_level"] == risk]
+        st.write(f"Showing {len(filtered)} users in **{risk}** risk segment.")
+        st.dataframe(filtered)
 
-        st.subheader(f"📊 Churn Score by {seg_col}")
-        fig = px.box(df, x=seg_col, y="churn_score", title=f"Churn Score Distribution by {seg_col}")
-        st.plotly_chart(fig, use_container_width=True)
+        st.download_button(
+            "📥 Download Segment",
+            filtered.to_csv(index=False),
+            file_name=f"{risk.lower()}_risk_users.csv"
+        )
 
-        st.subheader(f"📊 User Count by {seg_col}")
-        fig2 = px.histogram(df, x=seg_col, title=f"User Count by {seg_col}")
-        st.plotly_chart(fig2, use_container_width=True)
+# -------------------------------------
+# 📖 ABOUT – Tool Info
+# -------------------------------------
+elif section == "About":
+    st.title("ℹ️ About RetentionOS")
+
+    st.markdown("""
+    ### 🧠 What is RetentionOS?
+    **RetentionOS** is a lightweight churn prediction and nudging assistant built for fast-moving Product teams in early-stage startups.
+
+    It empowers teams to:
+    - 🚨 Detect at-risk users before they churn
+    - 🎯 Get smart nudging recommendations
+    - 📤 Export segments for real reactivation
+    - 🧠 Make data-backed growth decisions without needing data scientists
+
+    ---
+
+    ### 💡 Why It Exists
+    Built with the belief that **Product Managers shouldn't wait on data teams** to get insights — RetentionOS gives PMs a plug-and-play dashboard to take action, fast.
+
+    Whether you're at a D2C brand, a mobility startup, or a healthcare app — if retention matters, this is for you.
+
+    ---
+
+    ### 🔧 Built By
+    Created with curiosity, grit, and a product-first mindset by **Lalit Panwar** — a Product Manager passionate about growth, retention, and building tools that actually solve problems.
+
+    _“I built RetentionOS because I saw how much time teams waste figuring out what to do with raw user data. This tool does the thinking for you — so you can focus on execution.”_
+
+    ---
+
+    ### 🧪 Who Can Use It
+    - Product Managers 🎯
+    - Growth Teams 📈
+    - Startup Founders 🚀
+    - Aspiring PMs & Analysts 🛠️
+
+    ---
+
+    ### 📦 Supported Industries
+    - 🛍️ D2C / E-Commerce (e.g., skincare, fashion)
+    - 🚗 Mobility / Vehicle Services
+    - 🏥 Health & Wellness
+
+    ---
+    """, unsafe_allow_html=True)
+
