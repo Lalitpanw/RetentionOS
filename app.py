@@ -4,117 +4,79 @@ import plotly.express as px
 
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
-# Sidebar navigation (main)
-menu = ["Home", "Summary", "Dashboard", "Segments"]
-page = st.sidebar.radio("Navigate", menu)
+# Sidebar Navigation
 
-# Add 'About' at bottom
-st.sidebar.markdown("---")
-if st.sidebar.button("🔍 About RetentionOS"):
-    st.session_state.page = "About"
+st.sidebar.markdown("<h3 style='margin-bottom: 10px;'>\ud83d\udcc2 Navigation</h3>", unsafe_allow_html=True)
+st.sidebar.markdown("<br>" \* 1, unsafe_allow_html=True)
 
-# Store uploaded data
-if "df" not in st.session_state:
-    st.session_state.df = None
+# Radio navigation with About at the bottom
 
-if page == "Home":
-    st.title("RetentionOS – A User Turning Point")
-    uploaded_file = st.file_uploader("Upload a CSV or Excel file")
+section = st.sidebar.radio("Go to", \["Home", "Summary", "Dashboard", "Segments", "About"])
+st.sidebar.markdown("<br><br><br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
 
-    if uploaded_file:
-        try:
-            if uploaded_file.name.endswith(".csv"):
-                df = pd.read_csv(uploaded_file)
-            else:
-                df = pd.read_excel(uploaded_file)
-            st.session_state.df = df
-            st.success("File uploaded successfully!")
+# File upload (common across pages)
 
-            with st.expander("Preview Uploaded Data"):
-                st.dataframe(df)
+if "df" not in st.session\_state:
+st.session\_state.df = None
 
-            st.download_button("Download Clean File", df.to_csv(index=False), file_name="retention_clean_data.csv")
+if section == "Home":
+st.title("RetentionOS – A User Turning Point")
+uploaded\_file = st.file\_uploader("Upload a CSV or Excel file", type=\["csv", "xlsx"])
+if uploaded\_file:
+if uploaded\_file.name.endswith(".csv"):
+st.session\_state.df = pd.read\_csv(uploaded\_file)
+elif uploaded\_file.name.endswith((".xls", ".xlsx")):
+st.session\_state.df = pd.read\_excel(uploaded\_file)
+st.success("✅ File uploaded successfully!")
+st.dataframe(st.session\_state.df.head())
 
-        except Exception as e:
-            st.error(f"Error reading file: {e}")
+elif section == "Summary":
+st.title("📈 User Summary Insights")
+if st.session\_state.df is not None:
+st.subheader("Key Columns Detected:")
+st.write(", ".join(st.session\_state.df.columns))
+st.subheader("📌 Sample Data")
+st.dataframe(st.session\_state.df.head())
+else:
+st.warning("Please upload a file from the Home page.")
 
-elif page == "Summary":
-    st.title("Retention Summary")
-    df = st.session_state.df
+elif section == "Dashboard":
+st.title("📊 Dashboard Metrics")
+if st.session\_state.df is not None:
+df = st.session\_state.df
+st.metric("Total Users", len(df))
+st.metric("High Risk Users", df\[df\["risk\_level"] == "High"].shape\[0])
+st.metric("Average Churn Score", round(df\["churn\_score"].mean(), 2))
+else:
+st.warning("Please upload a file from the Home page.")
 
-    if df is None:
-        st.warning("Please upload a file first in the Home tab.")
-    else:
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Users", len(df))
-        col2.metric("High Risk Users", (df["risk_level"] == "High").sum())
-        col3.metric("Average Churn Score", round(df["churn_score"].mean(), 2))
+elif section == "Segments":
+st.title("📌 Segmentation Insights")
+if st.session\_state.df is not None:
+df = st.session\_state.df
+selected\_risk = st.selectbox("Select Risk Level", df\["risk\_level"].unique())
+filtered = df\[df\["risk\_level"] == selected\_risk]
+st.write(f"Filtered users in {selected\_risk} risk:", filtered.shape\[0])
+st.dataframe(filtered)
+else:
+st.warning("Please upload a file from the Home page.")
 
-        st.subheader("Churn Risk Breakdown")
-        st.bar_chart(df["risk_level"].value_counts())
+elif section == "About":
+st.title("About RetentionOS")
+st.markdown("""
+RetentionOS is a lightweight churn prediction and nudging assistant built for fast-moving product teams at early-stage startups.
 
-        if "gender" in df.columns:
-            st.subheader("Gender Distribution")
-            st.plotly_chart(px.pie(df, names="gender", title="User Gender Split"))
+```
+**Benefits:**
+- Detect churn risk across users (High, Medium, Low)
+- Gain actionable insights using simple dashboards
+- Get smart nudge recommendations
+- Export ready-to-use campaign files
 
-        if "churn_score" in df.columns:
-            st.subheader("Top 5 High-Risk Users")
-            top_risky = df.sort_values(by="churn_score", ascending=False).head(5)
-            st.dataframe(top_risky[["user_id", "churn_score", "nudge_recommendation"]])
-
-        if "nudge_recommendation" in df.columns:
-            st.subheader("Nudge Recommendation Distribution")
-            chart_data = df["nudge_recommendation"].value_counts().reset_index()
-            st.plotly_chart(px.bar(chart_data, x="index", y="nudge_recommendation",
-                                   labels={"index": "Nudge Type", "nudge_recommendation": "Count"}))
-
-elif page == "Dashboard":
-    st.title("Dashboard")
-    df = st.session_state.df
-
-    if df is None:
-        st.warning("Please upload a file first in the Home tab.")
-    else:
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Users", len(df))
-        col2.metric("High Risk Users", (df["risk_level"] == "High").sum())
-        col3.metric("Average Churn Score", round(df["churn_score"].mean(), 2))
-
-        st.subheader("Churn Score Histogram")
-        st.plotly_chart(px.histogram(df, x="churn_score", nbins=20))
-
-elif page == "Segments":
-    st.title("User Segments")
-    df = st.session_state.df
-
-    if df is None:
-        st.warning("Please upload a file first in the Home tab.")
-    else:
-        risk = st.selectbox("Select Risk Level", df["risk_level"].unique())
-        filtered = df[df["risk_level"] == risk]
-        st.write(f"{len(filtered)} users in {risk} risk segment")
-        st.dataframe(filtered)
-
-        st.download_button("Download Segment", filtered.to_csv(index=False),
-                           file_name=f"{risk.lower()}_risk_users.csv")
-
-# About section appears separately if triggered
-if "page" in st.session_state and st.session_state.page == "About":
-    st.title("About RetentionOS")
-    st.write("""
-    RetentionOS is a lightweight churn prediction and nudging assistant
-    built for fast-moving product teams at early-stage startups.
-
-    **Benefits:**
-    - Detect churn risk across users (High, Medium, Low)
-    - Gain actionable insights using simple dashboards
-    - Get smart nudge recommendations
-    - Export ready-to-use campaign files
-    - No coding required – just upload and act
-
-    **Expected Outcomes:**
-    - Better retention strategies
-    - Data-backed nudge campaigns
-    - Faster user segmentation
-    - Clear churn trends and metrics
-    """)
+**Expected Outcomes:**
+- Better retention strategies
+- Data-backed nudge campaigns
+- Faster user segmentation
+- Clear churn trends and metrics
+""")
+```
