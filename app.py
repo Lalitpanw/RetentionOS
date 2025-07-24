@@ -2,17 +2,17 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="RetentionOS", layout="wide")
+st.set\_page\_config(page\_title="RetentionOS", layout="wide")
 
 # Sidebar Navigation
 
-st.sidebar.markdown("<h3 style='margin-bottom: 10px;'>\ud83d\udcc2 Navigation</h3>", unsafe_allow_html=True)
-st.sidebar.markdown("<br>" \* 1, unsafe_allow_html=True)
+st.sidebar.markdown("<h3 style='margin-bottom: 10px;'>\ud83d\udcc2 Navigation</h3>", unsafe\_allow\_html=True)
+st.sidebar.markdown("<br>" \* 1, unsafe\_allow\_html=True)
 
 # Radio navigation with About at the bottom
 
 section = st.sidebar.radio("Go to", \["Home", "Summary", "Dashboard", "Segments", "About"])
-st.sidebar.markdown("<br><br><br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br><br><br><br><br><br><br><br><br><br>", unsafe\_allow\_html=True)
 
 # File upload (common across pages)
 
