@@ -7,7 +7,7 @@ st.set_page_config(page_title="RetentionOS", layout="wide")
 # Sidebar with logo and navigation
 
 st.sidebar.image("[https://your-image-host.com/retentionos-logo.png](https://your-image-host.com/retentionos-logo.png)", width=120)  # Replace with your actual logo URL
-section = st.sidebar.radio("📂 Navigate", \["Home", "Summary", "Dashboard", "Segments", "About"])
+section = st.sidebar.radio("📂 Navigate", ["Home", "Summary", "Dashboard", "Segments", "About"])
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("#### ℹ️ About RetentionOS")
