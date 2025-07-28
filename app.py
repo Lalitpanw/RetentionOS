@@ -5,7 +5,7 @@ import io
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
 # -------------------------------
-# 🧠 Auto-map close column names
+# 🔁 Auto-map similar column names
 # -------------------------------
 def auto_map_columns(df):
     expected = {
@@ -26,7 +26,7 @@ def auto_map_columns(df):
     return mapping
 
 # -------------------------------
-# 🧠 Churn Scoring Logic
+# 🧠 Churn scoring logic
 # -------------------------------
 def process_churn_scores(df):
     df = df.copy()
@@ -51,11 +51,10 @@ def process_churn_scores(df):
 
     df['churn_score'] = df.apply(churn_score, axis=1)
     df['churn_risk'] = df['churn_score'].apply(risk_label)
-
     return df
 
 # -------------------------------
-# Sidebar Navigation
+# Sidebar navigation
 # -------------------------------
 st.sidebar.title("🔎 Navigation")
 page = st.sidebar.radio("Go to", [
@@ -75,19 +74,19 @@ if 'df' not in st.session_state:
 if page == "📁 Data Upload":
     st.title("🚀 RetentionOS – Predict. Segment. Re-engage.")
     st.markdown("_Upload user data → Identify churn risk → Auto-nudge users_")
-
     st.header("📁 Data Upload")
     st.markdown("Upload your user data (CSV or Excel) to begin")
+
     uploaded_file = st.file_uploader("Upload CSV or XLSX", type=["csv", "xlsx"])
 
-        if uploaded_file:
+    if uploaded_file:
         try:
             if uploaded_file.name.endswith(".csv"):
                 df = pd.read_csv(uploaded_file)
             else:
                 df = pd.read_excel(uploaded_file)
 
-            # 🧠 Auto-map columns
+            # 🔁 Auto-map columns
             mapping = auto_map_columns(df)
             required = ['last_active_days', 'orders', 'total_sessions']
             if not all(col in mapping for col in required):
@@ -99,7 +98,7 @@ if page == "📁 Data Upload":
             st.session_state.df = processed_df
             st.success("✅ File uploaded and auto-mapped successfully!")
 
-            # ✅ Neat column mapping display
+            # ✅ Show detected mappings
             st.markdown("#### 🔍 Column Mapping Detected:")
             for k, v in mapping.items():
                 st.markdown(f"- 🔹 **{k}** → `{v}`")
@@ -107,8 +106,7 @@ if page == "📁 Data Upload":
         except Exception as e:
             st.error(f"⚠️ Error: {e}")
 
-
-    # Sample CSV download
+    # 📥 Sample file download
     sample_data = {
         'user_id': [101, 102, 103],
         'last_seen': [3, 18, 27],
@@ -132,9 +130,9 @@ if page == "📁 Data Upload":
 # -------------------------------
 elif page == "📊 Churn Overview":
     st.title("📊 Churn Overview")
+
     if st.session_state.df is not None:
         df = st.session_state.df.copy()
-
         total_users = len(df)
         high_risk = (df['churn_risk'] == "🔴 High").sum()
         medium_risk = (df['churn_risk'] == "🟠 Medium").sum()
@@ -159,8 +157,10 @@ elif page == "📊 Churn Overview":
 # -------------------------------
 elif page == "👥 User Segments":
     st.title("👥 User Segments")
+
     if st.session_state.df is not None:
         df = st.session_state.df.copy()
+
         st.subheader("🔴 High Risk Users")
         st.dataframe(df[df['churn_risk'] == "🔴 High"])
 
@@ -177,6 +177,7 @@ elif page == "👥 User Segments":
 # -------------------------------
 elif page == "💬 Nudge Suggestions":
     st.title("💬 Nudge Suggestions")
+
     if st.session_state.df is not None:
         st.markdown("_Auto-generated WhatsApp/Email messages based on user segment_")
 
@@ -196,11 +197,12 @@ elif page == "💬 Nudge Suggestions":
 # -------------------------------
 elif page == "📈 Impact Snapshot":
     st.title("📈 Impact Snapshot")
+
     if st.session_state.df is not None:
         df = st.session_state.df.copy()
 
         high_risk = (df['churn_risk'] == "🔴 High").sum()
-        est_saved = int(high_risk * 0.2)
+        est_saved = int(high_risk * 0.2)  # assume 20% saved via nudges
         value_per_user = df['revenue'].mean() if 'revenue' in df.columns else 0
         est_revenue = int(est_saved * value_per_user)
 
