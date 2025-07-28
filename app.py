@@ -1,85 +1,74 @@
 import streamlit as st
 import pandas as pd
-from fuzzywuzzy import fuzz
 
-st.set_page_config(page_title="RetentionOS", layout="centered")
+st.set_page_config(page_title="RetentionOS", layout="wide")
 
-st.title("📊 RetentionOS – A User Turning Point")
-st.markdown("_Upload your user data → Predict churn → Auto-nudge users._")
+# Sidebar navigation
+st.sidebar.title("🔎 Navigation")
+page = st.sidebar.radio("Go to", [
+    "📁 Data Upload",
+    "📊 Churn Overview",
+    "👥 User Segments",
+    "💬 Nudge Suggestions",
+    "📈 Impact Snapshot"
+])
 
-# --- Step 1: Upload file ---
-uploaded_file = st.file_uploader("📥 Upload your CSV file", type=["csv", "xlsx"])
+# Global session state to store uploaded data
+if 'df' not in st.session_state:
+    st.session_state.df = None
 
-if uploaded_file:
-    # --- Step 2: Load data ---
-    if uploaded_file.name.endswith(".xlsx"):
-        df = pd.read_excel(uploaded_file)
-    else:
-        df = pd.read_csv(uploaded_file)
-
-    st.success(f"File uploaded: {uploaded_file.name}")
-    st.markdown(f"📄 **Columns detected**: `{', '.join(df.columns)}`")
-
-    # --- Step 3: Auto-map columns ---
-    expected_fields = {
-        'last_active_days': ['last_seen', 'last_active', 'inactive_days'],
-        'total_sessions': ['sessions', 'login_count', 'visits'],
-        'orders': ['orders', 'purchases', 'transactions'],
-        'revenue': ['amount_spent', 'order_value', 'lifetime_value'],
-    }
-
-    def auto_map_columns(df):
-        mapping = {}
-        for key, possible_names in expected_fields.items():
-            for col in df.columns:
-                for option in possible_names:
-                    if fuzz.partial_ratio(col.lower(), option.lower()) > 80:
-                        mapping[key] = col
-                        break
-        return mapping
-
-    mapping = auto_map_columns(df)
-
-    # --- Step 4: Manual fallback ---
-    st.markdown("### 🔍 Column Mapping")
-    for key in expected_fields:
-        if key not in mapping:
-            mapping[key] = st.selectbox(f"Select column for **{key}**", df.columns)
-        st.markdown(f"✅ `{key}` → `{mapping[key]}`")
-
-    # --- Step 5: Standardize ---
-    df = df.rename(columns={mapping[k]: k for k in mapping})
-
-    # --- Step 6: Scoring logic (simple rules) ---
-    def score_user(row):
-        score = 0
-        if row['last_active_days'] > 14:
-            score += 1
-        if row['orders'] < 1:
-            score += 1
-        if row['total_sessions'] < 3:
-            score += 1
-        return score
-
-    df['churn_score'] = df.apply(score_user, axis=1)
-
-    def label_risk(score):
-        if score >= 2:
-            return "🔴 High"
-        elif score == 1:
-            return "🟠 Medium"
+# 1. Data Upload Page
+if page == "📁 Data Upload":
+    st.title("📁 Data Upload")
+    st.markdown("_Upload your user data (CSV or Excel) to begin_")
+    
+    uploaded_file = st.file_uploader("Upload CSV or XLSX", type=["csv", "xlsx"])
+    
+    if uploaded_file:
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
         else:
-            return "🟢 Low"
+            df = pd.read_excel(uploaded_file)
+        
+        st.session_state.df = df
+        st.success("✅ File uploaded successfully! Now move to 'Churn Overview' ➡")
 
-    df['churn_risk'] = df['churn_score'].apply(label_risk)
+# 2. Churn Overview Page
+elif page == "📊 Churn Overview":
+    st.title("📊 Churn Overview")
+    
+    if st.session_state.df is not None:
+        st.markdown("_Summary of churn scores and user distribution_")
+        # You’ll add churn scoring + chart here in next step
+    else:
+        st.warning("⚠️ Please upload a file in 'Data Upload' first.")
 
-    # --- Step 7: Display Results ---
-    st.markdown("### 📊 Churn Risk Segments")
-    st.dataframe(df[['churn_risk', 'last_active_days', 'orders', 'total_sessions']])
+# 3. User Segments Page
+elif page == "👥 User Segments":
+    st.title("👥 User Segments")
+    
+    if st.session_state.df is not None:
+        st.markdown("_See users segmented by churn risk (High / Medium / Low)_")
+        # You’ll add filtered table logic here next
+    else:
+        st.warning("⚠️ Please upload a file in 'Data Upload' first.")
 
-    # --- Optional: Future Add-ons ---
-    # - Nudge message generator
-    # - Export filtered segments
-    # - Twilio API integration
-else:
-    st.info("👆 Upload a CSV or Excel file to begin.")
+# 4. Nudge Suggestions Page
+elif page == "💬 Nudge Suggestions":
+    st.title("💬 Nudge Suggestions")
+    
+    if st.session_state.df is not None:
+        st.markdown("_Auto-generated WhatsApp/Email nudges based on risk level_")
+        # You’ll add message previews per risk group
+    else:
+        st.warning("⚠️ Please upload a file in 'Data Upload' first.")
+
+# 5. Impact Snapshot Page
+elif page == "📈 Impact Snapshot":
+    st.title("📈 Impact Snapshot")
+    
+    if st.session_state.df is not None:
+        st.markdown("_Estimated uplift from nudges, retention impact, and more_")
+        # Later: Add a basic ROI calculator or uplift projection
+    else:
+        st.warning("⚠️ Please upload a file in 'Data Upload' first.")
