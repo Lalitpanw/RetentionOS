@@ -5,15 +5,31 @@ import io
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
 # -------------------------------
-# 🧠 Churn Scoring Logic with Column Validation
+# 🧠 Auto-map close column names
+# -------------------------------
+def auto_map_columns(df):
+    expected = {
+        'last_active_days': ['last_active', 'inactive_days', 'last_seen', 'days_since_active'],
+        'orders': ['orders', 'purchases', 'transactions', 'total_orders'],
+        'total_sessions': ['sessions', 'visits', 'login_count']
+    }
+    mapping = {}
+    for standard_col, options in expected.items():
+        for col in df.columns:
+            if col.lower() == standard_col:
+                mapping[standard_col] = col
+                break
+            for alt in options:
+                if alt.lower() in col.lower():
+                    mapping[standard_col] = col
+                    break
+    return mapping
+
+# -------------------------------
+# 🧠 Churn Scoring Logic
 # -------------------------------
 def process_churn_scores(df):
     df = df.copy()
-    required_cols = ['last_active_days', 'orders', 'total_sessions']
-    missing = [col for col in required_cols if col not in df.columns]
-
-    if missing:
-        raise KeyError(f"Missing required column(s): {', '.join(missing)}")
 
     def churn_score(row):
         score = 0
@@ -62,9 +78,6 @@ if page == "📁 Data Upload":
 
     st.header("📁 Data Upload")
     st.markdown("Upload your user data (CSV or Excel) to begin")
-
-    st.markdown("📝 **Required Columns:** `last_active_days`, `orders`, `total_sessions`")
-
     uploaded_file = st.file_uploader("Upload CSV or XLSX", type=["csv", "xlsx"])
 
     if uploaded_file:
@@ -74,25 +87,38 @@ if page == "📁 Data Upload":
             else:
                 df = pd.read_excel(uploaded_file)
 
+            # 🧠 Auto-map columns
+            mapping = auto_map_columns(df)
+            required = ['last_active_days', 'orders', 'total_sessions']
+            if not all(col in mapping for col in required):
+                missing = [col for col in required if col not in mapping]
+                raise KeyError(f"Missing required data fields: {', '.join(missing)}")
+
+            df = df.rename(columns={v: k for k, v in mapping.items()})
             processed_df = process_churn_scores(df)
             st.session_state.df = processed_df
-            st.success("✅ File uploaded and processed! Now move to 'Churn Overview' ➡")
+            st.success("✅ File uploaded and auto-mapped successfully!")
 
-        except KeyError as e:
+            # Show mapping
+            st.markdown("#### 🔍 Column Mapping Detected:")
+            for k, v in mapping.items():
+                st.markdown(f"`{k}` → **{v}**")
+
+        except Exception as e:
             st.error(f"⚠️ Error: {e}")
 
     # Sample CSV download
     sample_data = {
         'user_id': [101, 102, 103],
-        'last_active_days': [3, 18, 27],
-        'total_sessions': [12, 4, 1],
-        'orders': [3, 1, 0],
+        'last_seen': [3, 18, 27],
+        'login_count': [12, 4, 1],
+        'transactions': [3, 1, 0],
         'revenue': [499, 149, 0]
     }
     sample_df = pd.DataFrame(sample_data)
     csv_data = sample_df.to_csv(index=False).encode('utf-8')
 
-    st.markdown("#### 📥 Don't have data? Download a sample to try it out:")
+    st.markdown("#### 📥 Try Sample File:")
     st.download_button(
         label="⬇️ Download Sample CSV",
         data=csv_data,
@@ -101,14 +127,12 @@ if page == "📁 Data Upload":
     )
 
 # -------------------------------
-# 📊 Churn Overview Page
+# 📊 Churn Overview
 # -------------------------------
 elif page == "📊 Churn Overview":
     st.title("📊 Churn Overview")
-
     if st.session_state.df is not None:
         df = st.session_state.df.copy()
-        st.markdown("_Summary of churn scores and user distribution_")
 
         total_users = len(df)
         high_risk = (df['churn_risk'] == "🔴 High").sum()
@@ -121,24 +145,21 @@ elif page == "📊 Churn Overview":
         col3.metric("🟠 Medium Risk", medium_risk)
         col4.metric("🟢 Low Risk", low_risk)
 
-        st.markdown("### 📊 Churn Risk Distribution")
+        st.markdown("### 📊 Risk Breakdown")
         st.bar_chart(df['churn_risk'].value_counts())
 
-        st.markdown("### 👁 Preview with Scores")
+        st.markdown("### 🔍 Preview Table")
         st.dataframe(df[['user_id', 'last_active_days', 'total_sessions', 'orders', 'churn_risk']])
     else:
-        st.warning("⚠️ Please upload a file in 'Data Upload' first.")
+        st.warning("⚠️ Please upload data first.")
 
 # -------------------------------
-# 👥 User Segments Page
+# 👥 User Segments
 # -------------------------------
 elif page == "👥 User Segments":
     st.title("👥 User Segments")
-
     if st.session_state.df is not None:
         df = st.session_state.df.copy()
-        st.markdown("_Segmented view by churn risk level_")
-
         st.subheader("🔴 High Risk Users")
         st.dataframe(df[df['churn_risk'] == "🔴 High"])
 
@@ -148,45 +169,42 @@ elif page == "👥 User Segments":
         st.subheader("🟢 Low Risk Users")
         st.dataframe(df[df['churn_risk'] == "🟢 Low"])
     else:
-        st.warning("⚠️ Please upload a file in 'Data Upload' first.")
+        st.warning("⚠️ Please upload data first.")
 
 # -------------------------------
-# 💬 Nudge Suggestions Page
+# 💬 Nudge Suggestions
 # -------------------------------
 elif page == "💬 Nudge Suggestions":
     st.title("💬 Nudge Suggestions")
-
     if st.session_state.df is not None:
-        st.markdown("_Auto-generated WhatsApp/Email nudges based on churn risk_")
+        st.markdown("_Auto-generated WhatsApp/Email messages based on user segment_")
 
         st.subheader("🔴 High Risk")
-        st.code("👋 Hey there! We noticed you haven’t been active lately. Come back today and get 15% off your next purchase!")
+        st.code("👋 We noticed you haven’t visited lately. Come back today and get 20% off!")
 
         st.subheader("🟠 Medium Risk")
-        st.code("👋 We miss you! Use code WELCOME10 for 10% off your next session.")
+        st.code("👋 Quick reminder! Use code 'STAY10' for 10% off your next session.")
 
         st.subheader("🟢 Low Risk")
-        st.code("Thanks for being an active user! Here's a sneak peek at what’s coming next…")
+        st.code("Thanks for being with us! Here's what’s coming next…")
     else:
-        st.warning("⚠️ Please upload a file in 'Data Upload' first.")
+        st.warning("⚠️ Please upload data first.")
 
 # -------------------------------
-# 📈 Impact Snapshot Page
+# 📈 Impact Snapshot
 # -------------------------------
 elif page == "📈 Impact Snapshot":
     st.title("📈 Impact Snapshot")
-
     if st.session_state.df is not None:
         df = st.session_state.df.copy()
 
         high_risk = (df['churn_risk'] == "🔴 High").sum()
-        est_saved = int(high_risk * 0.2)  # assume 20% response rate
+        est_saved = int(high_risk * 0.2)
         value_per_user = df['revenue'].mean() if 'revenue' in df.columns else 0
         est_revenue = int(est_saved * value_per_user)
 
-        st.markdown("### 📌 Projected Retention Impact")
-        st.metric("🧍 Users at Risk", high_risk)
-        st.metric("✅ Est. Users Retained (20%)", est_saved)
-        st.metric("💰 Est. Revenue Saved", f"₹ {est_revenue}")
+        st.metric("🧍 At-Risk Users", high_risk)
+        st.metric("✅ Projected Saved (20%)", est_saved)
+        st.metric("💰 Potential Revenue Recovered", f"₹ {est_revenue}")
     else:
-        st.warning("⚠️ Please upload a file in 'Data Upload' first.")
+        st.warning("⚠️ Please upload data first.")
