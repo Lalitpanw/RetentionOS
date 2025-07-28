@@ -5,10 +5,15 @@ import io
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
 # -------------------------------
-# 🧠 Churn Scoring Logic Function
+# 🧠 Churn Scoring Logic with Column Validation
 # -------------------------------
 def process_churn_scores(df):
     df = df.copy()
+    required_cols = ['last_active_days', 'orders', 'total_sessions']
+    missing = [col for col in required_cols if col not in df.columns]
+
+    if missing:
+        raise KeyError(f"Missing required column(s): {', '.join(missing)}")
 
     def churn_score(row):
         score = 0
@@ -57,17 +62,24 @@ if page == "📁 Data Upload":
 
     st.header("📁 Data Upload")
     st.markdown("Upload your user data (CSV or Excel) to begin")
+
+    st.markdown("📝 **Required Columns:** `last_active_days`, `orders`, `total_sessions`")
+
     uploaded_file = st.file_uploader("Upload CSV or XLSX", type=["csv", "xlsx"])
 
     if uploaded_file:
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
+        try:
+            if uploaded_file.name.endswith(".csv"):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
 
-        processed_df = process_churn_scores(df)
-        st.session_state.df = processed_df
-        st.success("✅ File uploaded and processed! Now move to 'Churn Overview' ➡")
+            processed_df = process_churn_scores(df)
+            st.session_state.df = processed_df
+            st.success("✅ File uploaded and processed! Now move to 'Churn Overview' ➡")
+
+        except KeyError as e:
+            st.error(f"⚠️ Error: {e}")
 
     # Sample CSV download
     sample_data = {
@@ -169,7 +181,7 @@ elif page == "📈 Impact Snapshot":
 
         high_risk = (df['churn_risk'] == "🔴 High").sum()
         est_saved = int(high_risk * 0.2)  # assume 20% response rate
-        value_per_user = df['revenue'].mean()
+        value_per_user = df['revenue'].mean() if 'revenue' in df.columns else 0
         est_revenue = int(est_saved * value_per_user)
 
         st.markdown("### 📌 Projected Retention Impact")
