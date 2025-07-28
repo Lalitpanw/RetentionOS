@@ -161,14 +161,21 @@ elif page == "👥 User Segments":
     if st.session_state.df is not None:
         df = st.session_state.df.copy()
 
-        st.subheader("🔴 High Risk Users")
-        st.dataframe(df[df['churn_risk'] == "🔴 High"])
+        st.markdown("### 🔍 Select Churn Segment to View")
+        segment = st.selectbox(
+            "Choose a risk segment:",
+            ["🔴 High", "🟠 Medium", "🟢 Low"],
+            index=0
+        )
 
-        st.subheader("🟠 Medium Risk Users")
-        st.dataframe(df[df['churn_risk'] == "🟠 Medium"])
+        segment_df = df[df["churn_risk"] == segment]
 
-        st.subheader("🟢 Low Risk Users")
-        st.dataframe(df[df['churn_risk'] == "🟢 Low"])
+        if segment_df.empty:
+            st.warning("No users found in this segment.")
+        else:
+            st.subheader(f"{segment} Risk Users")
+            st.dataframe(segment_df)
+
     else:
         st.warning("⚠️ Please upload data first.")
 
