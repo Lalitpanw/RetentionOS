@@ -99,10 +99,12 @@ if page == "📁 Data Upload":
             st.session_state.df = processed_df
             st.success("✅ File uploaded and auto-mapped successfully!")
 
-            # Show mapping
-            st.markdown("#### 🔍 Column Mapping Detected:")
-            for k, v in mapping.items():
-                st.markdown(f"`{k}` → **{v}**")
+           st.markdown("#### 🔍 Column Mapping Detected:")
+st.write({
+    "last_active_days": mapping.get("last_active_days", "❌ Not found"),
+    "orders": mapping.get("orders", "❌ Not found"),
+    "total_sessions": mapping.get("total_sessions", "❌ Not found"),
+})
 
         except Exception as e:
             st.error(f"⚠️ Error: {e}")
