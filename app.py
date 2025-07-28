@@ -18,21 +18,26 @@ page = st.sidebar.radio("Go to", [
 if 'df' not in st.session_state:
     st.session_state.df = None
 
-# 1. Data Upload Page
-if page == "📁 Data Upload":
-    st.title("📁 Data Upload")
-    st.markdown("_Upload your user data (CSV or Excel) to begin_")
-    
-    uploaded_file = st.file_uploader("Upload CSV or XLSX", type=["csv", "xlsx"])
-    
-    if uploaded_file:
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
-        
-        st.session_state.df = df
-        st.success("✅ File uploaded successfully! Now move to 'Churn Overview' ➡")
+# --- Sample CSV download button ---
+import io
+
+sample_data = {
+    'user_id': [101, 102, 103],
+    'last_active_days': [3, 18, 27],
+    'total_sessions': [12, 4, 1],
+    'orders': [3, 1, 0],
+    'revenue': [499, 149, 0]
+}
+sample_df = pd.DataFrame(sample_data)
+csv_data = sample_df.to_csv(index=False).encode('utf-8')
+
+st.markdown("#### 📥 Don't have data? Download a sample to try it out:")
+st.download_button(
+    label="⬇️ Download Sample CSV",
+    data=csv_data,
+    file_name="sample_retentionos.csv",
+    mime="text/csv"
+)
 
 # 2. Churn Overview Page
 elif page == "📊 Churn Overview":
