@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="RetentionOS", layout="wide")
+st.title("🚀 RetentionOS – Predict. Segment. Re-engage.")
+st.markdown("_Upload user data → Identify churn risk → Auto-nudge users_")
 
 # Sidebar navigation
 st.sidebar.title("🔎 Navigation")
