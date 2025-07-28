@@ -4,7 +4,38 @@ import io
 
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
-# Sidebar navigation
+# -------------------------------
+# 🧠 Churn Scoring Logic Function
+# -------------------------------
+def process_churn_scores(df):
+    df = df.copy()
+
+    def churn_score(row):
+        score = 0
+        if row['last_active_days'] > 14:
+            score += 1
+        if row['orders'] < 1:
+            score += 1
+        if row['total_sessions'] < 3:
+            score += 1
+        return score
+
+    def risk_label(score):
+        if score >= 2:
+            return "🔴 High"
+        elif score == 1:
+            return "🟠 Medium"
+        else:
+            return "🟢 Low"
+
+    df['churn_score'] = df.apply(churn_score, axis=1)
+    df['churn_risk'] = df['churn_score'].apply(risk_label)
+
+    return df
+
+# -------------------------------
+# Sidebar Navigation
+# -------------------------------
 st.sidebar.title("🔎 Navigation")
 page = st.sidebar.radio("Go to", [
     "📁 Data Upload",
@@ -14,11 +45,12 @@ page = st.sidebar.radio("Go to", [
     "📈 Impact Snapshot"
 ])
 
-# Session state for storing uploaded data
 if 'df' not in st.session_state:
     st.session_state.df = None
 
+# -------------------------------
 # 📁 Data Upload Page
+# -------------------------------
 if page == "📁 Data Upload":
     st.title("🚀 RetentionOS – Predict. Segment. Re-engage.")
     st.markdown("_Upload user data → Identify churn risk → Auto-nudge users_")
@@ -33,8 +65,9 @@ if page == "📁 Data Upload":
         else:
             df = pd.read_excel(uploaded_file)
 
-        st.session_state.df = df
-        st.success("✅ File uploaded successfully! Now move to 'Churn Overview' ➡")
+        processed_df = process_churn_scores(df)
+        st.session_state.df = processed_df
+        st.success("✅ File uploaded and processed! Now move to 'Churn Overview' ➡")
 
     # Sample CSV download
     sample_data = {
@@ -55,39 +88,93 @@ if page == "📁 Data Upload":
         mime="text/csv"
     )
 
-# ✅ Syntax fixed here (colon added)
+# -------------------------------
+# 📊 Churn Overview Page
+# -------------------------------
 elif page == "📊 Churn Overview":
     st.title("📊 Churn Overview")
 
     if st.session_state.df is not None:
+        df = st.session_state.df.copy()
         st.markdown("_Summary of churn scores and user distribution_")
-        # You'll add churn scoring logic here later
+
+        total_users = len(df)
+        high_risk = (df['churn_risk'] == "🔴 High").sum()
+        medium_risk = (df['churn_risk'] == "🟠 Medium").sum()
+        low_risk = (df['churn_risk'] == "🟢 Low").sum()
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("👥 Total Users", total_users)
+        col2.metric("🔴 High Risk", high_risk)
+        col3.metric("🟠 Medium Risk", medium_risk)
+        col4.metric("🟢 Low Risk", low_risk)
+
+        st.markdown("### 📊 Churn Risk Distribution")
+        st.bar_chart(df['churn_risk'].value_counts())
+
+        st.markdown("### 👁 Preview with Scores")
+        st.dataframe(df[['user_id', 'last_active_days', 'total_sessions', 'orders', 'churn_risk']])
     else:
         st.warning("⚠️ Please upload a file in 'Data Upload' first.")
 
+# -------------------------------
+# 👥 User Segments Page
+# -------------------------------
 elif page == "👥 User Segments":
     st.title("👥 User Segments")
 
     if st.session_state.df is not None:
-        st.markdown("_See users segmented by churn risk (High / Medium / Low)_")
-        # You'll add segmentation display here
+        df = st.session_state.df.copy()
+        st.markdown("_Segmented view by churn risk level_")
+
+        st.subheader("🔴 High Risk Users")
+        st.dataframe(df[df['churn_risk'] == "🔴 High"])
+
+        st.subheader("🟠 Medium Risk Users")
+        st.dataframe(df[df['churn_risk'] == "🟠 Medium"])
+
+        st.subheader("🟢 Low Risk Users")
+        st.dataframe(df[df['churn_risk'] == "🟢 Low"])
     else:
         st.warning("⚠️ Please upload a file in 'Data Upload' first.")
 
+# -------------------------------
+# 💬 Nudge Suggestions Page
+# -------------------------------
 elif page == "💬 Nudge Suggestions":
     st.title("💬 Nudge Suggestions")
 
     if st.session_state.df is not None:
-        st.markdown("_Auto-generated WhatsApp/Email nudges based on risk level_")
-        # You'll add nudge previews here
+        st.markdown("_Auto-generated WhatsApp/Email nudges based on churn risk_")
+
+        st.subheader("🔴 High Risk")
+        st.code("👋 Hey there! We noticed you haven’t been active lately. Come back today and get 15% off your next purchase!")
+
+        st.subheader("🟠 Medium Risk")
+        st.code("👋 We miss you! Use code WELCOME10 for 10% off your next session.")
+
+        st.subheader("🟢 Low Risk")
+        st.code("Thanks for being an active user! Here's a sneak peek at what’s coming next…")
     else:
         st.warning("⚠️ Please upload a file in 'Data Upload' first.")
 
+# -------------------------------
+# 📈 Impact Snapshot Page
+# -------------------------------
 elif page == "📈 Impact Snapshot":
     st.title("📈 Impact Snapshot")
 
     if st.session_state.df is not None:
-        st.markdown("_Estimated uplift from nudges, retention impact, and more_")
-        # You'll add ROI/impact logic here
+        df = st.session_state.df.copy()
+
+        high_risk = (df['churn_risk'] == "🔴 High").sum()
+        est_saved = int(high_risk * 0.2)  # assume 20% response rate
+        value_per_user = df['revenue'].mean()
+        est_revenue = int(est_saved * value_per_user)
+
+        st.markdown("### 📌 Projected Retention Impact")
+        st.metric("🧍 Users at Risk", high_risk)
+        st.metric("✅ Est. Users Retained (20%)", est_saved)
+        st.metric("💰 Est. Revenue Saved", f"₹ {est_revenue}")
     else:
         st.warning("⚠️ Please upload a file in 'Data Upload' first.")
