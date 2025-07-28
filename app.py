@@ -80,7 +80,7 @@ if page == "📁 Data Upload":
     st.markdown("Upload your user data (CSV or Excel) to begin")
     uploaded_file = st.file_uploader("Upload CSV or XLSX", type=["csv", "xlsx"])
 
-    if uploaded_file:
+        if uploaded_file:
         try:
             if uploaded_file.name.endswith(".csv"):
                 df = pd.read_csv(uploaded_file)
@@ -99,15 +99,14 @@ if page == "📁 Data Upload":
             st.session_state.df = processed_df
             st.success("✅ File uploaded and auto-mapped successfully!")
 
-           st.markdown("#### 🔍 Column Mapping Detected:")
-st.write({
-    "last_active_days": mapping.get("last_active_days", "❌ Not found"),
-    "orders": mapping.get("orders", "❌ Not found"),
-    "total_sessions": mapping.get("total_sessions", "❌ Not found"),
-})
+            # ✅ Neat column mapping display
+            st.markdown("#### 🔍 Column Mapping Detected:")
+            for k, v in mapping.items():
+                st.markdown(f"- 🔹 **{k}** → `{v}`")
 
         except Exception as e:
             st.error(f"⚠️ Error: {e}")
+
 
     # Sample CSV download
     sample_data = {
