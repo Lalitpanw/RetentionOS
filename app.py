@@ -40,7 +40,7 @@ st.download_button(
 )
 
 # 2. Churn Overview Page
-elif page == "📊 Churn Overview":
+elif page == "📊 Churn Overview"
     st.title("📊 Churn Overview")
     
     if st.session_state.df is not None:
