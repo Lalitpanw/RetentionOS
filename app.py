@@ -93,23 +93,17 @@ if page == "📂 Data Upload":
                 df['churn_risk'] = df['churn_probability'].apply(assign_churn_risk)
 
                 st.session_state.df = df
-                st.sidebar.success("✅ Ready to explore segments")
-                st.dataframe(df.head())  # Shows the uploaded + predicted data
+                st.success("✅ Prediction complete!")
+                st.dataframe(df.head())
 
-# Add download button
-@st.cache_data
-def convert_df_to_csv(df):
-    return df.to_csv(index=False).encode('utf-8')
-
-csv = convert_df_to_csv(df)
-
-st.download_button(
-    label="📥 Download Processed File (CSV)",
-    data=csv,
-    file_name='churn_prediction_output.csv',
-    mime='text/csv'
-)
-
+                # Move download button inside try block (but after logic)
+                csv = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Download Processed File (CSV)",
+                    data=csv,
+                    file_name='churn_prediction_output.csv',
+                    mime='text/csv'
+                )
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
