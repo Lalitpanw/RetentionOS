@@ -76,7 +76,7 @@ if page == "📂 Data Upload":
     st.subheader("📂 Upload CSV or Excel")
     uploaded_file = st.file_uploader("Upload file", type=["csv", "xlsx"])
 
-    if uploaded_file:
+        if uploaded_file:
         try:
             df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
             df, mapped = smart_map_columns(df)
@@ -99,4 +99,6 @@ if page == "📂 Data Upload":
                 st.success("✅ Prediction complete!")
                 st.dataframe(df.head())
 
-        except Exc
+        except Exception as e:
+            st.error(f"❌ Error processing file: {e}")
+
