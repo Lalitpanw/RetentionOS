@@ -14,7 +14,6 @@ page = st.sidebar.radio("Go to", [
 ])
 
 st.markdown("# 🚀 RetentionOS – Predict. Segment. Re-engage.")
-st.write("✅ App loaded")
 
 # ----------------------------
 # Load the trained model
@@ -94,7 +93,7 @@ if page == "📂 Data Upload":
                 df['churn_risk'] = df['churn_probability'].apply(assign_churn_risk)
 
                 st.session_state.df = df
-                st.success("✅ Prediction complete!")
+                st.sidebar.success("✅ Ready to explore segments")
                 st.dataframe(df.head())
 
         except Exception as e:
