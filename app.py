@@ -1,163 +1,50 @@
-import streamlit as st
 import pandas as pd
-import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
 import joblib
 
-st.set_page_config(page_title="RetentionOS", layout="wide")
-
-st.sidebar.title("🔍 Navigation")
-page = st.sidebar.radio("Go to", [
-    "📂 Data Upload",
-    "📊 Churn Overview",
-    "👥 User Segments",
-    "💬 Nudge Suggestions",
-    "📈 Impact Snapshot"
-])
-
-st.markdown("# 🚀 RetentionOS – Predict. Segment. Re-engage.")
-st.markdown("Upload user data → Predict churn → Auto-nudge users.")
-
-# -------------------------
-# 🔌 Load Model
-# -------------------------
-@st.cache_resource
-def load_model():
-    try:
-        model = joblib.load("churn_model.pkl")
-        return model
-    except Exception as e:
-        st.error(f"❌ Failed to load ML model: {e}")
-        return None
-
-model = load_model()
-
-# -------------------------
-# 🧠 Universal Column Mapping
-# -------------------------
-REQUIRED_COLS = ['product_views', 'cart_items', 'total_sessions', 'last_active_days', 'orders', 'cart_value']
-
-COLUMN_ALIASES = {
-    'product_views': ['views', 'page_views', 'browses'],
-    'cart_items': ['items_in_cart', 'cart_count'],
-    'total_sessions': ['sessions', 'session_count', 'visits'],
-    'last_active_days': ['inactive_days', 'days_since_last_visit'],
-    'orders': ['purchases', 'number_of_orders'],
-    'cart_value': ['basket_value', 'total_cart_value']
+# ------------------------------------------
+# ✅ STEP 1: Create or load training dataset
+# ------------------------------------------
+data = {
+    'product_views':     [10, 1, 15, 2, 7, 12, 0, 5, 3, 8, 6, 0, 4, 11, 9],
+    'cart_items':        [2, 0, 1, 0, 1, 3, 0, 1, 0, 2, 1, 0, 1, 2, 3],
+    'total_sessions':    [8, 1, 10, 2, 4, 7, 1, 5, 3, 6, 3, 2, 4, 7, 8],
+    'last_active_days':  [2, 30, 3, 27, 6, 1, 35, 9, 22, 5, 11, 28, 13, 4, 3],
+    'orders':            [1, 0, 1, 0, 1, 2, 0, 1, 0, 1, 1, 0, 1, 2, 2],
+    'cart_value':        [150, 0, 200, 0, 100, 300, 0, 120, 0, 180, 90, 0, 110, 220, 250],
+    'churned':           [0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0]
 }
 
-def smart_map_columns(df):
-    rename_map = {}
-    for target_col, aliases in COLUMN_ALIASES.items():
-        for alias in aliases:
-            matches = [col for col in df.columns if alias.lower() in col.lower()]
-            if matches:
-                rename_map[matches[0]] = target_col
-                break
-    return df.rename(columns=rename_map), rename_map
+df = pd.DataFrame(data)
 
-def assign_churn_risk(prob):
-    if prob >= 0.75:
-        return "🔴 High"
-    elif prob >= 0.4:
-        return "🟠 Medium"
-    else:
-        return "🟢 Low"
+# ------------------------------------------
+# ✅ STEP 2: Train/test split
+# ------------------------------------------
+X = df[['product_views', 'cart_items', 'total_sessions', 'last_active_days', 'orders', 'cart_value']]
+y = df['churned']
 
-if "df" not in st.session_state:
-    st.session_state.df = None
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
-# -------------------------
-# 📂 Page: Upload
-# -------------------------
-if page == "📂 Data Upload":
-    st.subheader("📂 Upload User CSV or Excel")
-    uploaded_file = st.file_uploader("Upload CSV or XLSX", type=["csv", "xlsx"])
+# ------------------------------------------
+# ✅ STEP 3: Train Logistic Regression model
+# ------------------------------------------
+model = LogisticRegression()
+model.fit(X_train, y_train)
 
-    if uploaded_file:
-        try:
-            # Read file
-            df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
+# ------------------------------------------
+# ✅ STEP 4: Evaluate the model
+# ------------------------------------------
+y_pred = model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
 
-            # Map unknown columns
-            df, mapped = smart_map_columns(df)
+print("🎯 Accuracy:", round(accuracy, 2))
+print("\n📊 Classification Report:")
+print(classification_report(y_test, y_pred))
 
-            # Check required columns
-            missing = [col for col in REQUIRED_COLS if col not in df.columns]
-            if missing:
-                st.error(f"❌ Missing required column(s): {', '.join(missing)}")
-            else:
-                st.success("✅ All required columns detected. Processing...")
-
-                # Show detected mappings
-                if mapped:
-                    st.markdown("#### 🔍 Column Mapping Detected:")
-                    for original, new_col in mapped.items():
-                        st.write(f"`{original}` → `{new_col}`")
-
-                # Run prediction
-                X = df[REQUIRED_COLS]
-                churn_probs = model.predict_proba(X)[:, 1]
-                df['churn_probability'] = churn_probs.round(2)
-                df['churn_risk'] = df['churn_probability'].apply(assign_churn_risk)
-
-                st.session_state.df = df
-                st.success("✅ Prediction complete!")
-                st.dataframe(df.head())
-
-        except Exception as e:
-            st.error(f"❌ Error processing file: {e}")
-
-    st.markdown("📥 Don’t have data? [Download sample file](https://raw.githubusercontent.com/lalitpanw/RetentionOS/main/sample.csv)")
-
-# -------------------------
-# 📊 Page: Churn Overview
-# -------------------------
-elif page == "📊 Churn Overview":
-    st.title("📊 Churn Risk Breakdown")
-    if st.session_state.df is not None:
-        df = st.session_state.df
-        st.metric("Total Users", len(df))
-        st.metric("🔴 High Risk", sum(df['churn_risk'] == "🔴 High"))
-        st.metric("🟠 Medium Risk", sum(df['churn_risk'] == "🟠 Medium"))
-        st.metric("🟢 Low Risk", sum(df['churn_risk'] == "🟢 Low"))
-        st.bar_chart(df['churn_risk'].value_counts())
-    else:
-        st.warning("⚠️ Please upload data first.")
-
-# -------------------------
-# 👥 Page: Segments
-# -------------------------
-elif page == "👥 User Segments":
-    st.title("👥 User Segments")
-    if st.session_state.df is not None:
-        df = st.session_state.df
-        risk = st.selectbox("Select Risk Segment", ["🔴 High", "🟠 Medium", "🟢 Low"])
-        st.dataframe(df[df['churn_risk'] == risk])
-    else:
-        st.warning("⚠️ Please upload data first.")
-
-# -------------------------
-# 💬 Page: Nudge Suggestions
-# -------------------------
-elif page == "💬 Nudge Suggestions":
-    st.title("💬 Suggested Nudges")
-    if st.session_state.df is not None:
-        st.markdown("- 📲 WhatsApp: “We miss you! Use code WELCOME10 for 10% off.”")
-        st.markdown("- 📩 Email: “Get back to shopping – your cart is waiting!”")
-        st.markdown("- 🎯 Segment: Target 🔴 High risk users with special offers.")
-    else:
-        st.warning("⚠️ Please upload data first.")
-
-# -------------------------
-# 📈 Page: Impact Snapshot
-# -------------------------
-elif page == "📈 Impact Snapshot":
-    st.title("📈 Impact Simulation")
-    if st.session_state.df is not None:
-        df = st.session_state.df
-        high = df[df['churn_risk'] == "🔴 High"]
-        improved = int(len(high) * 0.3)  # Assume 30% saved
-        st.metric("High Risk Users", len(high))
-        st.metric("Saved by Campaign", improved)
-    else:
-        st.warning("⚠️ Please upload data first.")
+# ------------------------------------------
+# ✅ STEP 5: Save the model
+# ------------------------------------------
+joblib.dump(model, "churn_model.pkl")
+print("✅ churn_model.pkl saved successfully.")
