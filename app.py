@@ -15,7 +15,6 @@ page = st.sidebar.radio("Go to", [
 ])
 
 st.markdown("# 🚀 RetentionOS – Predict. Segment. Re-engage.")
-st.write("✅ App loaded")
 
 @st.cache_resource
 def load_model():
