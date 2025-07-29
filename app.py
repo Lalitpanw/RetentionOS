@@ -5,13 +5,19 @@ import joblib
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
 st.sidebar.title("🔍 Navigation")
-page = st.sidebar.radio("Go to", [
-    "📂 Data Upload",
-    "📊 Churn Overview",
-    "👥 User Segments",
-    "💬 Nudge Suggestions",
-    "📈 Impact Snapshot",
-    "📉 Impact Tracker"  # ✅ New Tab
+page = st.sidebar.radio(
+    " ",
+    [
+        "📂 Data Upload",
+        "📊 Churn Overview",
+        "👥 User Segments",
+        "💬 Nudge Suggestions",
+        "📈 Impact Snapshot",
+        "📉 Impact Tracker"
+    ],
+    label_visibility="collapsed"
+)
+
 ])
 
 st.markdown(
