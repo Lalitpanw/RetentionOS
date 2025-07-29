@@ -10,14 +10,13 @@ page = st.sidebar.radio("Go to", [
     "📊 Churn Overview",
     "👥 User Segments",
     "💬 Nudge Suggestions",
-    "📈 Impact Snapshot"
+    "📈 Impact Snapshot",
+    "📉 Impact Tracker"  # ✅ New Tab
 ])
 
 st.markdown("# 🚀 RetentionOS – Predict. Segment. Re-engage.")
+st.write("✅ App loaded")
 
-# ----------------------------
-# Load the trained model
-# ----------------------------
 @st.cache_resource
 def load_model():
     try:
@@ -31,9 +30,6 @@ model = load_model()
 
 REQUIRED_COLS = ['product_views', 'cart_items', 'total_sessions', 'last_active_days', 'orders', 'cart_value']
 
-# ----------------------------
-# Column mapping logic
-# ----------------------------
 def smart_map_columns(df):
     rename_map = {}
     mapping = {
@@ -44,14 +40,12 @@ def smart_map_columns(df):
         'orders': ['purchases', 'number_of_orders'],
         'cart_value': ['basket_value', 'order_value']
     }
-
     for standard, aliases in mapping.items():
         for alias in aliases:
             match = [col for col in df.columns if alias.lower() in col.lower()]
             if match:
                 rename_map[match[0]] = standard
                 break
-
     df = df.rename(columns=rename_map)
     return df, rename_map
 
@@ -67,7 +61,7 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # ----------------------------
-# 📂 Page: Upload
+# 📂 Upload Page
 # ----------------------------
 if page == "📂 Data Upload":
     st.subheader("📂 Upload CSV or Excel")
@@ -96,7 +90,6 @@ if page == "📂 Data Upload":
                 st.success("✅ Prediction complete!")
                 st.dataframe(df.head())
 
-                # Move download button inside try block (but after logic)
                 csv = df.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 Download Processed File (CSV)",
@@ -109,7 +102,7 @@ if page == "📂 Data Upload":
             st.error(f"❌ Error: {e}")
 
 # ----------------------------
-# 📊 Page: Churn Overview
+# 📊 Churn Overview
 # ----------------------------
 elif page == "📊 Churn Overview":
     st.title("📊 Churn Risk Overview")
@@ -124,7 +117,7 @@ elif page == "📊 Churn Overview":
         st.warning("⚠️ Please upload data first.")
 
 # ----------------------------
-# 👥 Page: User Segments
+# 👥 Segments
 # ----------------------------
 elif page == "👥 User Segments":
     st.title("👥 User Segments")
@@ -136,7 +129,7 @@ elif page == "👥 User Segments":
         st.warning("⚠️ Please upload data first.")
 
 # ----------------------------
-# 💬 Page: Nudge Suggestions
+# 💬 Nudge Suggestions
 # ----------------------------
 elif page == "💬 Nudge Suggestions":
     st.title("💬 Suggested Nudges")
@@ -148,7 +141,7 @@ elif page == "💬 Nudge Suggestions":
         st.warning("⚠️ Please upload data first.")
 
 # ----------------------------
-# 📈 Page: Impact Snapshot
+# 📈 Impact Snapshot
 # ----------------------------
 elif page == "📈 Impact Snapshot":
     st.title("📈 Impact Projection")
@@ -160,3 +153,50 @@ elif page == "📈 Impact Snapshot":
         st.metric("Projected Saved (via campaign)", saved)
     else:
         st.warning("⚠️ Please upload data first.")
+
+# ----------------------------
+# 📉 Impact Tracker – New Feature!
+# ----------------------------
+elif page == "📉 Impact Tracker":
+    st.title("📉 Nudge Impact Tracker")
+
+    st.markdown("#### Step 1: Upload your PREVIOUS scored file (with churn_risk)")
+    prev_file = st.file_uploader("Upload previous scored CSV", key="prev_file", type=["csv"])
+
+    st.markdown("#### Step 2: Upload NEW behavior data (post-nudge)")
+    new_file = st.file_uploader("Upload new user behavior file", key="new_file", type=["csv", "xlsx"])
+
+    if prev_file and new_file and model:
+        try:
+            prev_df = pd.read_csv(prev_file)
+            prev_df = prev_df[['user_id', 'churn_risk']]
+            prev_df.rename(columns={'churn_risk': 'churn_risk_before'}, inplace=True)
+
+            new_df = pd.read_csv(new_file) if new_file.name.endswith(".csv") else pd.read_excel(new_file)
+            new_df, _ = smart_map_columns(new_df)
+
+            if 'user_id' not in new_df.columns:
+                st.error("❌ 'user_id' column is required in new behavior data.")
+            else:
+                X = new_df[REQUIRED_COLS]
+                churn_probs = model.predict_proba(X)[:, 1]
+                new_df['churn_probability'] = churn_probs.round(2)
+                new_df['churn_risk_after'] = new_df['churn_probability'].apply(assign_churn_risk)
+
+                merged = pd.merge(prev_df, new_df[['user_id', 'churn_risk_after']], on='user_id', how='inner')
+
+                total_users = len(merged)
+                improved = len(merged[(merged['churn_risk_before'] == "🔴 High") & (merged['churn_risk_after'] != "🔴 High")])
+                no_change = len(merged[merged['churn_risk_before'] == merged['churn_risk_after']])
+                worsened = len(merged[(merged['churn_risk_before'] != "🔴 High") & (merged['churn_risk_after'] == "🔴 High")])
+
+                st.success(f"✅ Compared {total_users} users.")
+                st.metric("🙌 Improved Users", improved)
+                st.metric("⚠️ Unchanged Risk", no_change)
+                st.metric("🔻 Risk Worsened", worsened)
+
+                st.subheader("📄 Risk Comparison Table")
+                st.dataframe(merged)
+
+        except Exception as e:
+            st.error(f"❌ Error comparing files: {e}")
