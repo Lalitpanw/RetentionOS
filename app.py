@@ -94,7 +94,22 @@ if page == "📂 Data Upload":
 
                 st.session_state.df = df
                 st.sidebar.success("✅ Ready to explore segments")
-                st.dataframe(df.head())
+                st.dataframe(df.head())  # Shows the uploaded + predicted data
+
+# Add download button
+@st.cache_data
+def convert_df_to_csv(df):
+    return df.to_csv(index=False).encode('utf-8')
+
+csv = convert_df_to_csv(df)
+
+st.download_button(
+    label="📥 Download Processed File (CSV)",
+    data=csv,
+    file_name='churn_prediction_output.csv',
+    mime='text/csv'
+)
+
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
