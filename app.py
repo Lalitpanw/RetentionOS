@@ -19,7 +19,7 @@ st.markdown(
     <h2 style='font-family: Inter, sans-serif; font-weight: 600; margin-bottom: 0.5rem;'>
     🚀 RetentionOS
     </h2>
-    <p style='font-size: 16px; margin-top: -10px; color: #444;'> Predict. Segment. Re-engage.</p>
+    <p style='font-size: 16px; margin-top: -10px; color: #444;'>Predict. Segment. Re-engage.</p>
     """,
     unsafe_allow_html=True
 )
