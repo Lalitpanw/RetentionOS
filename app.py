@@ -18,8 +18,6 @@ page = st.sidebar.radio(
     label_visibility="collapsed"
 )
 
-])
-
 st.markdown(
     """
     <h2 style='font-family: Inter, sans-serif; font-weight: 600; margin-bottom: 0.5rem;'>
