@@ -14,12 +14,10 @@ page = st.sidebar.radio("Go to", [
 ])
 
 st.markdown("# 🚀 RetentionOS – Predict. Segment. Re-engage.")
-
-# ✅ DEBUG: Confirm app loaded
-st.write("✅ App started")
+st.write("✅ App loaded")
 
 # ----------------------------
-# Load ML model
+# Load the trained model
 # ----------------------------
 @st.cache_resource
 def load_model():
@@ -27,7 +25,7 @@ def load_model():
         model = joblib.load("churn_model.pkl")
         return model
     except Exception as e:
-        st.error(f"❌ Error loading model: {e}")
+        st.error(f"❌ Model loading failed: {e}")
         return None
 
 model = load_model()
@@ -35,7 +33,7 @@ model = load_model()
 REQUIRED_COLS = ['product_views', 'cart_items', 'total_sessions', 'last_active_days', 'orders', 'cart_value']
 
 # ----------------------------
-# Smart column mapper
+# Column mapping logic
 # ----------------------------
 def smart_map_columns(df):
     rename_map = {}
@@ -48,11 +46,11 @@ def smart_map_columns(df):
         'cart_value': ['basket_value', 'order_value']
     }
 
-    for target, aliases in mapping.items():
+    for standard, aliases in mapping.items():
         for alias in aliases:
             match = [col for col in df.columns if alias.lower() in col.lower()]
             if match:
-                rename_map[match[0]] = target
+                rename_map[match[0]] = standard
                 break
 
     df = df.rename(columns=rename_map)
@@ -70,7 +68,7 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # ----------------------------
-# Page: Upload
+# 📂 Page: Upload
 # ----------------------------
 if page == "📂 Data Upload":
     st.subheader("📂 Upload CSV or Excel")
@@ -78,27 +76,18 @@ if page == "📂 Data Upload":
 
     if uploaded_file:
         try:
-            # Load file
-            if uploaded_file.name.endswith(".csv"):
-                df = pd.read_csv(uploaded_file)
-            else:
-                df = pd.read_excel(uploaded_file)
-
-            # Map unknown column names
+            df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
             df, mapped = smart_map_columns(df)
 
-            # Check required features
             missing = [col for col in REQUIRED_COLS if col not in df.columns]
             if missing:
                 st.error(f"❌ Missing required columns: {', '.join(missing)}")
             else:
-                # Show column mappings
                 if mapped:
                     st.markdown("#### 🔍 Column Mapping Detected:")
                     for k, v in mapped.items():
                         st.write(f"`{k}` → `{v}`")
 
-                # Predict
                 X = df[REQUIRED_COLS]
                 churn_probs = model.predict_proba(X)[:, 1]
                 df['churn_probability'] = churn_probs.round(2)
@@ -109,4 +98,57 @@ if page == "📂 Data Upload":
                 st.dataframe(df.head())
 
         except Exception as e:
-            st.error(f"❌ Error processing file: {e}")
+            st.error(f"❌ Error: {e}")
+
+# ----------------------------
+# 📊 Page: Churn Overview
+# ----------------------------
+elif page == "📊 Churn Overview":
+    st.title("📊 Churn Risk Overview")
+    if st.session_state.df is not None:
+        df = st.session_state.df
+        st.metric("Total Users", len(df))
+        st.metric("🔴 High Risk", sum(df['churn_risk'] == "🔴 High"))
+        st.metric("🟠 Medium Risk", sum(df['churn_risk'] == "🟠 Medium"))
+        st.metric("🟢 Low Risk", sum(df['churn_risk'] == "🟢 Low"))
+        st.bar_chart(df['churn_risk'].value_counts())
+    else:
+        st.warning("⚠️ Please upload data first.")
+
+# ----------------------------
+# 👥 Page: User Segments
+# ----------------------------
+elif page == "👥 User Segments":
+    st.title("👥 User Segments")
+    if st.session_state.df is not None:
+        df = st.session_state.df
+        risk = st.selectbox("Select Segment", ["🔴 High", "🟠 Medium", "🟢 Low"])
+        st.dataframe(df[df['churn_risk'] == risk])
+    else:
+        st.warning("⚠️ Please upload data first.")
+
+# ----------------------------
+# 💬 Page: Nudge Suggestions
+# ----------------------------
+elif page == "💬 Nudge Suggestions":
+    st.title("💬 Suggested Nudges")
+    if st.session_state.df is not None:
+        st.markdown("- 📲 WhatsApp: “We miss you! Use code WELCOME10 for 10% off.”")
+        st.markdown("- 📩 Email: “Your cart is waiting – come back!”")
+        st.markdown("- 🎯 Focus on 🔴 High risk users.")
+    else:
+        st.warning("⚠️ Please upload data first.")
+
+# ----------------------------
+# 📈 Page: Impact Snapshot
+# ----------------------------
+elif page == "📈 Impact Snapshot":
+    st.title("📈 Impact Projection")
+    if st.session_state.df is not None:
+        df = st.session_state.df
+        high_risk = df[df['churn_risk'] == "🔴 High"]
+        saved = int(len(high_risk) * 0.3)
+        st.metric("High Risk Users", len(high_risk))
+        st.metric("Projected Saved (via campaign)", saved)
+    else:
+        st.warning("⚠️ Please upload data first.")
