@@ -76,20 +76,29 @@ if page == "📂 Data Upload":
     st.subheader("📂 Upload CSV or Excel")
     uploaded_file = st.file_uploader("Upload file", type=["csv", "xlsx"])
 
-        if uploaded_file:
+    if uploaded_file:
         try:
-            df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
+            # Load file
+            if uploaded_file.name.endswith(".csv"):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
+
+            # Map unknown column names
             df, mapped = smart_map_columns(df)
 
+            # Check required features
             missing = [col for col in REQUIRED_COLS if col not in df.columns]
             if missing:
                 st.error(f"❌ Missing required columns: {', '.join(missing)}")
             else:
+                # Show column mappings
                 if mapped:
                     st.markdown("#### 🔍 Column Mapping Detected:")
                     for k, v in mapped.items():
                         st.write(f"`{k}` → `{v}`")
 
+                # Predict
                 X = df[REQUIRED_COLS]
                 churn_probs = model.predict_proba(X)[:, 1]
                 df['churn_probability'] = churn_probs.round(2)
@@ -101,4 +110,3 @@ if page == "📂 Data Upload":
 
         except Exception as e:
             st.error(f"❌ Error processing file: {e}")
-
