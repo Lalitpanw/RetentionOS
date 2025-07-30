@@ -1,32 +1,69 @@
-from flask import Flask, request, jsonify
-import pandas as pd
-import joblib
+// This is a basic Next.js SaaS-style landing page for RetentionOS
+the project uses Tailwind CSS for styling
 
-app = Flask(__name__)
+import Head from "next/head";
+import Link from "next/link";
 
-# Load your trained model
-model = joblib.load("churn_model.pkl")
+export default function Home() {
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <Head>
+        <title>RetentionOS – Predict. Segment. Re-engage.</title>
+      </Head>
 
-REQUIRED_COLS = ['product_views', 'cart_items', 'total_sessions',
-                 'last_active_days', 'orders', 'cart_value']
+      <header className="bg-white shadow-md sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold">RetentionOS</h1>
+          <nav>
+            <a href="#features" className="mr-6 hover:text-blue-600">Features</a>
+            <a href="#demo" className="hover:text-blue-600">Try Demo</a>
+          </nav>
+        </div>
+      </header>
 
-@app.route("/predict", methods=["POST"])
-def predict():
-    if "file" not in request.files:
-        return jsonify({"error": "No file provided"}), 400
+      <main className="max-w-5xl mx-auto px-6 py-20">
+        <section className="text-center">
+          <h2 className="text-4xl font-extrabold mb-4">Predict. Segment. Re-engage.</h2>
+          <p className="text-lg text-gray-600 mb-6">
+            Upload your user data and get churn risk predictions instantly.
+          </p>
+          <a
+            href="https://your-streamlit-app.streamlit.app"
+            target="_blank"
+            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-xl shadow hover:bg-blue-700"
+          >
+            Launch Tool
+          </a>
+        </section>
 
-    file = request.files["file"]
-    df = pd.read_csv(file)
+        <section id="features" className="mt-20">
+          <h3 className="text-2xl font-bold mb-4">Key Features</h3>
+          <ul className="space-y-4">
+            <li className="bg-white p-4 rounded shadow">
+              📊 Churn Risk Prediction based on behavior data
+            </li>
+            <li className="bg-white p-4 rounded shadow">
+              🧠 Smart Segments: High, Medium, Low risk users
+            </li>
+            <li className="bg-white p-4 rounded shadow">
+              💬 Nudge Message Suggestions to retain users
+            </li>
+          </ul>
+        </section>
 
-    missing = [col for col in REQUIRED_COLS if col not in df.columns]
-    if missing:
-        return jsonify({"error": f"Missing columns: {missing}"}), 400
+        <section id="demo" className="mt-20">
+          <h3 className="text-2xl font-bold mb-4">Live Demo</h3>
+          <iframe
+            src="https://your-streamlit-app.streamlit.app"
+            className="w-full h-[600px] border rounded shadow"
+            title="RetentionOS Live Demo"
+          ></iframe>
+        </section>
+      </main>
 
-    X = df[REQUIRED_COLS]
-    preds = model.predict_proba(X)[:, 1]
-    df["churn_probability"] = preds.round(2)
-    df["churn_risk"] = df["churn_probability"].apply(
-        lambda p: "🔴 High" if p >= 0.75 else ("🟠 Medium" if p >= 0.4 else "🟢 Low")
-    )
-
-    return df.to_json(orient="records")
+      <footer className="text-center text-sm text-gray-500 mt-20 pb-10">
+        Built by Lalit · RetentionOS · 2025
+      </footer>
+    </div>
+  );
+}
