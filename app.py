@@ -1,110 +1,119 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
 import numpy as np
-from fuzzywuzzy import fuzz
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+import plotly.express as px
 
+# --- Page Config ---
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
-st.title("RetentionOS – Universal Churn Predictor")
+# --- Sidebar Navigation ---
+st.sidebar.title("📂 Navigation")
+section = st.sidebar.radio("Go to", ["Home", "Churn Prediction", "User Segments", "Dashboard"])
 
-st.markdown("""
-Upload any CSV/Excel file with user-level data. The tool will:
-- Automatically detect relevant columns
-- Train a churn prediction model on the fly
-- Assign churn probabilities and risk levels
-- Provide download-ready results
+# Sticky about button at the bottom
+st.sidebar.markdown("""
+---
 """)
+if st.sidebar.button("ℹ️ About RetentionOS"):
+    st.title("About RetentionOS")
+    st.markdown("""
+    **RetentionOS** is a universal churn predictor that allows users to:
+    - Upload any CSV or Excel file
+    - Auto-map relevant columns
+    - Train a churn model on-the-fly
+    - Predict churn probability and segment users
+    - View dashboards and download results
 
-uploaded_file = st.file_uploader("📂 Upload CSV or Excel file", type=["csv", "xlsx"])
+    Built with love by product thinkers.
+    """)
+    st.stop()
 
-if uploaded_file:
-    try:
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
+# --- Shared Session State ---
+if "df" not in st.session_state:
+    st.session_state.df = None
+
+# --- Home ---
+if section == "Home":
+    st.title("RetentionOS – Universal Churn Predictor")
+    st.markdown("""
+    Upload any CSV/Excel file with user-level data. The tool will:
+    - Automatically detect relevant columns
+    - Train a churn prediction model on the fly
+    - Assign churn probabilities and risk levels
+    - Provide download-ready results
+    """)
+
+    uploaded_file = st.file_uploader("📥 Upload CSV or Excel file", type=["csv", "xlsx"])
+
+    if uploaded_file:
+        try:
+            df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
+            df = df.dropna(axis=1, how='all')
+            df = df.dropna(axis=0, how='any')
+            st.session_state.df = df
+            st.success("✅ File uploaded and stored in session!")
+            st.dataframe(df.head())
+        except Exception as e:
+            st.error(f"❌ Failed to load file: {e}")
+
+# --- Churn Prediction ---
+elif section == "Churn Prediction":
+    if st.session_state.df is None:
+        st.warning("⚠️ Please upload your dataset from the Home page.")
+    else:
+        st.title("🔮 Churn Prediction")
+        df = st.session_state.df.copy()
+
+        # --- Auto-feature selection ---
+        numerical_cols = df.select_dtypes(include=np.number).columns.tolist()
+        if 'churn' in df.columns:
+            target = 'churn'
         else:
-            df = pd.read_excel(uploaded_file)
+            df['churn'] = np.random.choice([0, 1], size=len(df))  # Fake churn for training
+            target = 'churn'
 
-        st.success("✅ File uploaded successfully!")
-        st.dataframe(df.head())
+        X = df[numerical_cols].drop(columns=[target], errors='ignore')
+        y = df[target]
 
-        # Step 1: Try auto-mapping
-        expected_fields = {
-            'last_active_days': ['last_seen', 'last_active', 'inactive_days'],
-            'total_sessions': ['sessions', 'login_count', 'visits'],
-            'orders': ['orders', 'purchases', 'transactions'],
-        }
+        # --- Train/Test Split ---
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model.fit(X_train, y_train)
+        df['churn_probability'] = model.predict_proba(X)[:, 1]
+        df['risk_level'] = df['churn_probability'].apply(lambda x: "High" if x > 0.6 else "Medium" if x > 0.3 else "Low")
 
-        def auto_map_columns(df):
-            mapping = {}
-            for key, options in expected_fields.items():
-                for col in df.columns:
-                    for opt in options:
-                        if fuzz.partial_ratio(col.lower(), opt.lower()) > 80:
-                            mapping[key] = col
-                            break
-            return mapping
+        st.session_state.df = df
+        st.success("✅ Churn probabilities predicted and saved.")
+        st.dataframe(df[['churn_probability', 'risk_level']].head())
 
-        mapping = auto_map_columns(df)
-
-        st.markdown("### 🧠 Column Mapping")
-        for key in expected_fields:
-            if key in mapping:
-                st.markdown(f"✅ `{key}` → `{mapping[key]}`")
-            else:
-                mapping[key] = st.selectbox(f"Select column for **{key}**", df.columns)
-
-        # Step 2: Rename and prepare features
-        df = df.rename(columns={mapping[k]: k for k in mapping})
-
-        # Step 3: Use required columns if available, else fallback to numeric
-        required = ['last_active_days', 'orders', 'total_sessions']
-        if all(col in df.columns for col in required):
-            X = df[required].fillna(0)
-        else:
-            st.warning("Standard fields missing. Using all numeric columns.")
-            X = df.select_dtypes(include='number').fillna(0)
-
-        # Step 4: Simulated label
-        y = (df['orders'] == 0).astype(int) if 'orders' in df.columns else np.random.randint(0, 2, size=len(df))
-
-        # Step 5: Train model
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-
-        model = LogisticRegression()
-        model.fit(X_scaled, y)
-
-        df['churn_probability'] = model.predict_proba(X_scaled)[:, 1]
-
-        def label_risk(p):
-            if p >= 0.7:
-                return "🔴 High"
-            elif p >= 0.4:
-                return "🟠 Medium"
-            else:
-                return "🟢 Low"
-
-        df['risk_level'] = df['churn_probability'].apply(label_risk)
-
-        st.markdown("### 📊 Churn Prediction Results")
-        st.dataframe(df[['churn_probability', 'risk_level']].join(df.drop(columns=['churn_probability', 'risk_level'])))
-
-        st.markdown("### 📈 Insights")
-        fig1 = px.histogram(df, x="churn_probability", nbins=20, title="Churn Probability Distribution")
-        st.plotly_chart(fig1, use_container_width=True)
-
-        fig2 = px.pie(df, names="risk_level", title="Risk Level Breakdown")
-        st.plotly_chart(fig2, use_container_width=True)
-
-        # Step 6: Downloadable output
         csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Results (CSV)", csv, file_name="retentionos_output.csv", mime="text/csv")
+        st.download_button("📥 Download Results (CSV)", csv, file_name="churn_results.csv", mime="text/csv")
 
-    except Exception as e:
-        st.error("❌ Error while processing file:")
-        st.exception(e)
-else:
-    st.info("👆 Upload your user-level data to begin.")
+# --- User Segments ---
+elif section == "User Segments":
+    if st.session_state.df is None:
+        st.warning("⚠️ Please upload your dataset from the Home page.")
+    else:
+        st.title("👥 User Segments")
+        df = st.session_state.df
+        segment = st.selectbox("Select Risk Level", df["risk_level"].unique())
+        st.write(f"Users in segment '{segment}': {len(df[df['risk_level'] == segment])}")
+        st.dataframe(df[df["risk_level"] == segment])
+
+# --- Dashboard ---
+elif section == "Dashboard":
+    if st.session_state.df is None:
+        st.warning("⚠️ Please upload your dataset from the Home page.")
+    else:
+        st.title("📊 Dashboard")
+        df = st.session_state.df
+
+        st.metric("Total Users", len(df))
+        st.metric("High Risk Users", df[df['risk_level'] == "High"].shape[0])
+        st.metric("Average Churn Probability", round(df['churn_probability'].mean(), 2))
+
+        st.plotly_chart(px.histogram(df, x='churn_probability', nbins=30, title="Churn Probability Distribution"))
+        st.plotly_chart(px.pie(df, names='risk_level', title="Risk Level Split"))
