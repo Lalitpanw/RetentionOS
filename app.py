@@ -58,7 +58,8 @@ def calculate_rfm(df, mapping):
         mapping['orders']: 'count',
         mapping['revenue']: 'sum'
     }).reset_index()
-    rfm.columns = ["user_id", 'recency', 'frequency', 'monetary']
+
+    rfm.columns = [mapping['user_id'], 'recency', 'frequency', 'monetary']
 
     # RFM Segmentation
     rfm['R_score'] = pd.qcut(rfm['recency'], 4, labels=[4, 3, 2, 1])
@@ -81,7 +82,7 @@ def calculate_rfm(df, mapping):
 # HOME
 # =============================
 if page == "Home":
-    st.title("RetentionOS – A User Turning Point")
+    st.title("RetentionOS – Universal Churn Predictor")
     uploaded_file = st.file_uploader("📅 Upload CSV or Excel file", type=["csv", "xlsx"])
     if uploaded_file:
         try:
