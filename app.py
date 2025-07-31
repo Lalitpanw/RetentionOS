@@ -53,6 +53,7 @@ def smart_rfm_mapper(df):
 def calculate_rfm(df, mapping):
     df[mapping['last_seen']] = pd.to_datetime(df[mapping['last_seen']], errors='coerce')
     snapshot_date = df[mapping['last_seen']].max()
+
     rfm = df.groupby(mapping['user_id']).agg({
         mapping['last_seen']: lambda x: (snapshot_date - x.max()).days,
         mapping['orders']: 'count',
@@ -62,18 +63,24 @@ def calculate_rfm(df, mapping):
     rfm.columns = [mapping['user_id'], 'recency', 'frequency', 'monetary']
 
     # RFM Segmentation
-   rfm['R_score'] = pd.qcut(rfm['recency'], 4, labels=[4, 3, 2, 1], duplicates='drop')
-rfm['F_score'] = pd.qcut(rfm['frequency'].rank(method="first"), 4, labels=[1, 2, 3, 4], duplicates='drop')
-rfm['M_score'] = pd.qcut(rfm['monetary'], 4, labels=[1, 2, 3, 4], duplicates='drop')
+    rfm['R_score'] = pd.qcut(rfm['recency'], 4, labels=[4, 3, 2, 1], duplicates='drop')
+    rfm['F_score'] = pd.qcut(rfm['frequency'].rank(method="first"), 4, labels=[1, 2, 3, 4], duplicates='drop')
+    rfm['M_score'] = pd.qcut(rfm['monetary'], 4, labels=[1, 2, 3, 4], duplicates='drop')
     rfm['RFM_Segment'] = rfm['R_score'].astype(str) + rfm['F_score'].astype(str) + rfm['M_score'].astype(str)
 
     def classify_rfm(row):
-        if row['RFM_Segment'] == '444': return 'Champion'
-        elif row['R_score'] == 4: return 'Loyal'
-        elif row['F_score'] == 4: return 'Frequent'
-        elif row['M_score'] == 4: return 'High Value'
-        elif row['R_score'] == 1: return 'At Risk'
-        else: return 'Others'
+        if row['RFM_Segment'] == '444':
+            return 'Champion'
+        elif row['R_score'] == 4:
+            return 'Loyal'
+        elif row['F_score'] == 4:
+            return 'Frequent'
+        elif row['M_score'] == 4:
+            return 'High Value'
+        elif row['R_score'] == 1:
+            return 'At Risk'
+        else:
+            return 'Others'
 
     rfm['Segment'] = rfm.apply(classify_rfm, axis=1)
     return rfm
