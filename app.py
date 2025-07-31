@@ -50,16 +50,17 @@ def smart_rfm_mapper(df):
     return mapping
 
 # RFM Calculation Function
+
 def calculate_rfm(df, mapping):
     df[mapping['last_seen']] = pd.to_datetime(df[mapping['last_seen']], errors='coerce')
     snapshot_date = df[mapping['last_seen']].max()
-    rfm = df.groupby(mapping['user_id']).agg({
+    rfm = df.groupby(mapping['user_id'], as_index=False).agg({
         mapping['last_seen']: lambda x: (snapshot_date - x.max()).days,
         mapping['orders']: 'count',
         mapping['revenue']: 'sum'
-    }).reset_index()
+    })
 
-    rfm.columns = [mapping['user_id'], 'recency', 'frequency', 'monetary']
+    rfm.columns = ["user_id", 'recency', 'frequency', 'monetary']
 
     # RFM Segmentation
     rfm['R_score'] = pd.qcut(rfm['recency'], 4, labels=[4, 3, 2, 1])
@@ -83,7 +84,7 @@ def calculate_rfm(df, mapping):
 # =============================
 if page == "Home":
     st.title("RetentionOS – Universal Churn Predictor")
-    uploaded_file = st.file_uploader("📅 Upload CSV or Excel file", type=["csv", "xlsx"])
+    uploaded_file = st.file_uploader("🗓️ Upload CSV or Excel file", type=["csv", "xlsx"])
     if uploaded_file:
         try:
             if uploaded_file.name.endswith(".csv"):
@@ -107,6 +108,7 @@ elif page == "RFM Analysis":
     else:
         df = st.session_state.df.copy()
         mapping = smart_rfm_mapper(df)
+        st.write("🔍 Final Column Mapping:", mapping)
         rfm = calculate_rfm(df, mapping)
         st.dataframe(rfm.head())
 
