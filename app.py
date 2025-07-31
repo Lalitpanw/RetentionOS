@@ -1,119 +1,128 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import plotly.express as px
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-import plotly.express as px
+from fuzzywuzzy import fuzz
 
-# --- Page Config ---
+# Page config
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
-# --- Sidebar Navigation ---
-st.sidebar.markdown("### 📁 Navigation")
-menu = ["Home", "Churn Prediction", "User Segments", "Dashboard"]
-section = st.sidebar.radio("Go to", menu)
+# Sidebar Navigation
+st.sidebar.markdown("### 📂 Navigation")
+page = st.sidebar.radio("Go to", ["Home", "Churn Prediction", "User Segments", "Dashboard"])
 
-st.sidebar.markdown("---")
-about_clicked = st.sidebar.button("ℹ️ About RetentionOS")
----
-""")
+# About section at bottom
+st.sidebar.markdown("<br><br><br><hr>", unsafe_allow_html=True)
 if st.sidebar.button("ℹ️ About RetentionOS"):
-    st.title("About RetentionOS")
-    st.markdown("""
-    **RetentionOS** is a universal churn predictor that allows users to:
-    - Upload any CSV or Excel file
-    - Auto-map relevant columns
-    - Train a churn model on-the-fly
-    - Predict churn probability and segment users
-    - View dashboards and download results
-
-    Built with love by product thinkers.
+    st.info("""
+    **RetentionOS** is a lightweight churn prediction tool.
+    - Upload data → Train model → Predict churn → Export results.
+    - Designed for early-stage teams and product managers.
     """)
-    st.stop()
 
-# --- Shared Session State ---
+# Shared session state
 if "df" not in st.session_state:
     st.session_state.df = None
+if "predicted_df" not in st.session_state:
+    st.session_state.predicted_df = None
 
-# --- Home ---
-if section == "Home":
+# =============================
+# HOME
+# =============================
+if page == "Home":
     st.title("RetentionOS – Universal Churn Predictor")
 
-    st.markdown("#### 📤 Upload CSV or Excel file")
-    uploaded_file = st.file_uploader("Drag and drop file here", type=["csv", "xlsx"])
-
+    uploaded_file = st.file_uploader("📥 Upload CSV or Excel file", type=["csv", "xlsx"])
     if uploaded_file:
         try:
             if uploaded_file.name.endswith(".csv"):
                 df = pd.read_csv(uploaded_file)
             else:
-                import openpyxl
-                df = pd.read_excel(uploaded_file, engine="openpyxl")
-
+                df = pd.read_excel(uploaded_file)
             st.session_state.df = df
             st.success("✅ File uploaded successfully!")
             st.dataframe(df.head())
-
         except Exception as e:
-            st.error("❌ Error processing file.")
+            st.error("❌ Failed to read file.")
             st.exception(e)
 
-# --- Churn Prediction ---
-elif section == "Churn Prediction":
+# =============================
+# CHURN PREDICTION
+# =============================
+elif page == "Churn Prediction":
+    st.title("🔍 Predict Churn Risk")
+
     if st.session_state.df is None:
-        st.warning("⚠️ Please upload your dataset from the Home page.")
+        st.warning("⚠️ Please upload a dataset from the Home page.")
     else:
-        st.title("🔮 Churn Prediction")
         df = st.session_state.df.copy()
+        st.write(f"Detected columns: `{', '.join(df.columns)}`")
 
-        # --- Auto-feature selection ---
-        numerical_cols = df.select_dtypes(include=np.number).columns.tolist()
-        if 'churn' in df.columns:
-            target = 'churn'
-        else:
-            df['churn'] = np.random.choice([0, 1], size=len(df))  # Fake churn for training
-            target = 'churn'
+        # Encode categorical columns
+        le_dict = {}
+        for col in df.select_dtypes(include='object').columns:
+            le = LabelEncoder()
+            try:
+                df[col] = le.fit_transform(df[col])
+                le_dict[col] = le
+            except:
+                st.warning(f"⚠️ Could not encode column: {col}")
+                df.drop(columns=[col], inplace=True)
 
-        X = df[numerical_cols].drop(columns=[target], errors='ignore')
-        y = df[target]
+        # Remove non-numeric columns
+        df = df.select_dtypes(include=['number'])
 
-        # --- Train/Test Split ---
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        # Train-test split
+        df['churn'] = (df[df.columns[0]] % 2 == 0).astype(int)  # Dummy churn
+        X = df.drop(columns=['churn'])
+        y = df['churn']
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+        # Train model
+        model = RandomForestClassifier()
         model.fit(X_train, y_train)
-        df['churn_probability'] = model.predict_proba(X)[:, 1]
-        df['risk_level'] = df['churn_probability'].apply(lambda x: "High" if x > 0.6 else "Medium" if x > 0.3 else "Low")
+        probs = model.predict_proba(X)[:, 1]
+        df['churn_probability'] = probs
+        df['risk_level'] = df['churn_probability'].apply(lambda x: "High" if x > 0.7 else "Medium" if x > 0.4 else "Low")
 
-        st.session_state.df = df
-        st.success("✅ Churn probabilities predicted and saved.")
+        st.session_state.predicted_df = df
+        st.success("✅ Churn prediction complete.")
         st.dataframe(df[['churn_probability', 'risk_level']].head())
 
         csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Results (CSV)", csv, file_name="churn_results.csv", mime="text/csv")
+        st.download_button("📥 Download Prediction CSV", data=csv, file_name="churn_predictions.csv", mime='text/csv')
 
-# --- User Segments ---
-elif section == "User Segments":
-    if st.session_state.df is None:
-        st.warning("⚠️ Please upload your dataset from the Home page.")
+# =============================
+# USER SEGMENTS
+# =============================
+elif page == "User Segments":
+    st.title("👥 User Segments")
+    if st.session_state.predicted_df is None:
+        st.warning("⚠️ Run a churn prediction first.")
     else:
-        st.title("👥 User Segments")
-        df = st.session_state.df
-        segment = st.selectbox("Select Risk Level", df["risk_level"].unique())
-        st.write(f"Users in segment '{segment}': {len(df[df['risk_level'] == segment])}")
-        st.dataframe(df[df["risk_level"] == segment])
+        df = st.session_state.predicted_df
+        risk = st.selectbox("Select risk level", df["risk_level"].unique())
+        segment = df[df["risk_level"] == risk]
+        st.metric("Segment Size", len(segment))
+        st.dataframe(segment)
 
-# --- Dashboard ---
-elif section == "Dashboard":
-    if st.session_state.df is None:
-        st.warning("⚠️ Please upload your dataset from the Home page.")
+# =============================
+# DASHBOARD
+# =============================
+elif page == "Dashboard":
+    st.title("📊 Churn Dashboard")
+    if st.session_state.predicted_df is None:
+        st.warning("⚠️ Run a churn prediction first.")
     else:
-        st.title("📊 Dashboard")
-        df = st.session_state.df
-
+        df = st.session_state.predicted_df
         st.metric("Total Users", len(df))
-        st.metric("High Risk Users", df[df['risk_level'] == "High"].shape[0])
-        st.metric("Average Churn Probability", round(df['churn_probability'].mean(), 2))
+        st.metric("High Risk Users", df[df["risk_level"] == "High"].shape[0])
+        st.metric("Average Churn Probability", round(df["churn_probability"].mean(), 2))
 
-        st.plotly_chart(px.histogram(df, x='churn_probability', nbins=30, title="Churn Probability Distribution"))
-        st.plotly_chart(px.pie(df, names='risk_level', title="Risk Level Split"))
+        fig1 = px.histogram(df, x="churn_probability", nbins=20, title="Churn Probability Distribution")
+        st.plotly_chart(fig1, use_container_width=True)
+
+        fig2 = px.pie(df, names="risk_level", title="Risk Level Breakdown")
+        st.plotly_chart(fig2, use_container_width=True)
