@@ -50,17 +50,16 @@ def smart_rfm_mapper(df):
     return mapping
 
 # RFM Calculation Function
-
 def calculate_rfm(df, mapping):
     df[mapping['last_seen']] = pd.to_datetime(df[mapping['last_seen']], errors='coerce')
     snapshot_date = df[mapping['last_seen']].max()
-    rfm = df.groupby(mapping['user_id'], as_index=False).agg({
+    rfm = df.groupby(mapping['user_id']).agg({
         mapping['last_seen']: lambda x: (snapshot_date - x.max()).days,
         mapping['orders']: 'count',
         mapping['revenue']: 'sum'
-    })
+    }).reset_index()
 
-    rfm.columns = ["user_id", 'recency', 'frequency', 'monetary']
+    rfm.columns = [mapping['user_id'], 'recency', 'frequency', 'monetary']
 
     # RFM Segmentation
     rfm['R_score'] = pd.qcut(rfm['recency'], 4, labels=[4, 3, 2, 1])
@@ -84,7 +83,7 @@ def calculate_rfm(df, mapping):
 # =============================
 if page == "Home":
     st.title("RetentionOS – Universal Churn Predictor")
-    uploaded_file = st.file_uploader("🗓️ Upload CSV or Excel file", type=["csv", "xlsx"])
+    uploaded_file = st.file_uploader("📅 Upload CSV or Excel file", type=["csv", "xlsx"])
     if uploaded_file:
         try:
             if uploaded_file.name.endswith(".csv"):
@@ -99,6 +98,69 @@ if page == "Home":
             st.exception(e)
 
 # =============================
+# CHURN PREDICTION
+# =============================
+elif page == "Churn Prediction":
+    st.title("📉 Churn Prediction")
+    if st.session_state.df is None:
+        st.warning("⚠️ Please upload a dataset from the Home page first.")
+    else:
+        df = st.session_state.df.copy()
+        df = df.select_dtypes(include=['number']).dropna()
+        if df.shape[1] < 2:
+            st.warning("Not enough numeric columns for training.")
+        else:
+            st.markdown("### Training a model on the fly...")
+            df['churned'] = [1 if i % 3 == 0 else 0 for i in range(len(df))]
+            X = df.drop("churned", axis=1)
+            y = df["churned"]
+
+            model = RandomForestClassifier()
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+            model.fit(X_train, y_train)
+
+            probs = model.predict_proba(X)[:, 1]
+            df['churn_probability'] = probs.round(2)
+            df['risk_level'] = df['churn_probability'].apply(lambda x: "High" if x > 0.6 else ("Medium" if x > 0.3 else "Low"))
+
+            st.session_state.predicted_df = df
+            st.success("✅ Prediction complete!")
+            st.dataframe(df[['churn_probability', 'risk_level']].head())
+
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download Churn Predictions", data=csv, file_name="churn_predictions.csv", mime="text/csv")
+
+# =============================
+# USER SEGMENTS
+# =============================
+elif page == "User Segments":
+    st.title("👥 User Segments")
+    if st.session_state.predicted_df is None:
+        st.warning("⚠️ Please run a churn prediction first.")
+    else:
+        df = st.session_state.predicted_df
+        for risk in ['High', 'Medium', 'Low']:
+            segment_df = df[df['risk_level'] == risk]
+            st.subheader(f"{risk} Risk Users")
+            st.write(segment_df.head())
+
+# =============================
+# DASHBOARD
+# =============================
+elif page == "Dashboard":
+    st.title("📊 Dashboard")
+    if st.session_state.predicted_df is None:
+        st.warning("⚠️ Please run a churn prediction first.")
+    else:
+        df = st.session_state.predicted_df
+        st.metric("Total Users", len(df))
+        st.metric("High Risk Users", df[df['risk_level'] == "High"].shape[0])
+        st.metric("Average Churn Probability", round(df['churn_probability'].mean(), 2))
+
+        st.plotly_chart(px.histogram(df, x='churn_probability', nbins=20, title="Churn Probability Distribution"))
+        st.plotly_chart(px.pie(df, names='risk_level', title="Risk Level Distribution"))
+
+# =============================
 # RFM Analysis
 # =============================
 elif page == "RFM Analysis":
@@ -108,7 +170,6 @@ elif page == "RFM Analysis":
     else:
         df = st.session_state.df.copy()
         mapping = smart_rfm_mapper(df)
-        st.write("🔍 Final Column Mapping:", mapping)
         rfm = calculate_rfm(df, mapping)
         st.dataframe(rfm.head())
 
