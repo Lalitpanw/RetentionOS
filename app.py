@@ -12,7 +12,7 @@ st.set_page_config(page_title="RetentionOS", layout="wide")
 
 # Sidebar Navigation
 st.sidebar.markdown("### 📂 Navigation")
-page = st.sidebar.radio("Go to", ["Home", "Churn Prediction", "User Segments", "Dashboard"])
+page = st.sidebar.radio("Go to", ["Home", "Churn Prediction", "User Segments", "Dashboard", "RFM Analysis"])
 
 # About section at bottom
 st.sidebar.markdown("<br><br><br><hr>", unsafe_allow_html=True)
@@ -29,9 +29,7 @@ if "df" not in st.session_state:
 if "predicted_df" not in st.session_state:
     st.session_state.predicted_df = None
 
-# =============================
 # RFM Calculation Function
-# =============================
 def calculate_rfm(df, date_col='last_seen', user_col='user_id', orders_col='orders', revenue_col='revenue'):
     df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
     snapshot_date = df[date_col].max()
@@ -41,6 +39,22 @@ def calculate_rfm(df, date_col='last_seen', user_col='user_id', orders_col='orde
         revenue_col: 'sum'
     }).reset_index()
     rfm.columns = [user_col, 'recency', 'frequency', 'monetary']
+
+    # RFM Segmentation
+    rfm['R_score'] = pd.qcut(rfm['recency'], 4, labels=[4, 3, 2, 1])
+    rfm['F_score'] = pd.qcut(rfm['frequency'].rank(method="first"), 4, labels=[1, 2, 3, 4])
+    rfm['M_score'] = pd.qcut(rfm['monetary'], 4, labels=[1, 2, 3, 4])
+    rfm['RFM_Segment'] = rfm['R_score'].astype(str) + rfm['F_score'].astype(str) + rfm['M_score'].astype(str)
+
+    def classify_rfm(row):
+        if row['RFM_Segment'] == '444': return 'Champion'
+        elif row['R_score'] == 4: return 'Loyal'
+        elif row['F_score'] == 4: return 'Frequent'
+        elif row['M_score'] == 4: return 'High Value'
+        elif row['R_score'] == 1: return 'At Risk'
+        else: return 'Others'
+
+    rfm['Segment'] = rfm.apply(classify_rfm, axis=1)
     return rfm
 
 # =============================
@@ -73,7 +87,6 @@ elif page == "Churn Prediction":
         df = st.session_state.df.copy()
         st.write(f"Detected columns: `{', '.join(df.columns)}`")
 
-        # Optional RFM merge if required fields exist
         if all(col in df.columns for col in ['user_id', 'last_seen', 'orders', 'revenue']):
             rfm_df = calculate_rfm(df)
             df = pd.merge(df, rfm_df, on='user_id', how='left')
@@ -140,3 +153,30 @@ elif page == "Dashboard":
 
         fig2 = px.pie(df, names="risk_level", title="Risk Level Breakdown")
         st.plotly_chart(fig2, use_container_width=True)
+
+# =============================
+# RFM Analysis
+# =============================
+elif page == "RFM Analysis":
+    st.title("🧮 RFM Analysis")
+    if st.session_state.df is None:
+        st.warning("⚠️ Please upload your dataset from the Home page.")
+    else:
+        df = st.session_state.df.copy()
+        if not all(col in df.columns for col in ['user_id', 'last_seen', 'orders', 'revenue']):
+            st.error("Missing required columns for RFM: 'user_id', 'last_seen', 'orders', 'revenue'")
+        else:
+            rfm = calculate_rfm(df)
+            st.dataframe(rfm.head())
+
+            st.subheader("📊 RFM Distributions")
+            st.plotly_chart(px.histogram(rfm, x='recency', nbins=20, title="Recency Distribution"))
+            st.plotly_chart(px.histogram(rfm, x='frequency', nbins=20, title="Frequency Distribution"))
+            st.plotly_chart(px.histogram(rfm, x='monetary', nbins=20, title="Monetary Distribution"))
+
+            st.subheader("🌎 Segment Breakdown")
+            fig3 = px.pie(rfm, names='Segment', title="RFM Segment Share")
+            st.plotly_chart(fig3, use_container_width=True)
+
+            csv = rfm.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download RFM Data", data=csv, file_name="rfm_analysis.csv", mime="text/csv")
