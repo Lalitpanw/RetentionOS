@@ -10,11 +10,12 @@ import plotly.express as px
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
 # --- Sidebar Navigation ---
-st.sidebar.title("📂 Navigation")
-section = st.sidebar.radio("Go to", ["Home", "Churn Prediction", "User Segments", "Dashboard"])
+st.sidebar.markdown("### 📁 Navigation")
+menu = ["Home", "Churn Prediction", "User Segments", "Dashboard"]
+section = st.sidebar.radio("Go to", menu)
 
-# Sticky about button at the bottom
-st.sidebar.markdown("""
+st.sidebar.markdown("---")
+about_clicked = st.sidebar.button("ℹ️ About RetentionOS")
 ---
 """)
 if st.sidebar.button("ℹ️ About RetentionOS"):
@@ -38,26 +39,25 @@ if "df" not in st.session_state:
 # --- Home ---
 if section == "Home":
     st.title("RetentionOS – Universal Churn Predictor")
-    st.markdown("""
-    Upload any CSV/Excel file with user-level data. The tool will:
-    - Automatically detect relevant columns
-    - Train a churn prediction model on the fly
-    - Assign churn probabilities and risk levels
-    - Provide download-ready results
-    """)
 
-    uploaded_file = st.file_uploader("📥 Upload CSV or Excel file", type=["csv", "xlsx"])
+    st.markdown("#### 📤 Upload CSV or Excel file")
+    uploaded_file = st.file_uploader("Drag and drop file here", type=["csv", "xlsx"])
 
     if uploaded_file:
         try:
-            df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
-            df = df.dropna(axis=1, how='all')
-            df = df.dropna(axis=0, how='any')
+            if uploaded_file.name.endswith(".csv"):
+                df = pd.read_csv(uploaded_file)
+            else:
+                import openpyxl
+                df = pd.read_excel(uploaded_file, engine="openpyxl")
+
             st.session_state.df = df
-            st.success("✅ File uploaded and stored in session!")
+            st.success("✅ File uploaded successfully!")
             st.dataframe(df.head())
+
         except Exception as e:
-            st.error(f"❌ Failed to load file: {e}")
+            st.error("❌ Error processing file.")
+            st.exception(e)
 
 # --- Churn Prediction ---
 elif section == "Churn Prediction":
