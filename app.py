@@ -81,7 +81,7 @@ def calculate_rfm(df, mapping):
 # HOME
 # =============================
 if page == "Home":
-    st.title("RetentionOS – Universal Churn Predictor")
+    st.title("RetentionOS – A User Turning Point")
     uploaded_file = st.file_uploader("📅 Upload CSV or Excel file", type=["csv", "xlsx"])
     if uploaded_file:
         try:
