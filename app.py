@@ -54,6 +54,7 @@ def calculate_rfm(df, mapping):
     df[mapping['last_seen']] = pd.to_datetime(df[mapping['last_seen']], errors='coerce')
     snapshot_date = df[mapping['last_seen']].max()
 
+    # Group and compute RFM metrics
     rfm = (
         df.groupby(mapping['user_id'], as_index=False)
         .agg({
@@ -63,8 +64,12 @@ def calculate_rfm(df, mapping):
         })
     )
 
-    # Rename columns
-    rfm.columns = [mapping['user_id'], 'recency', 'frequency', 'monetary']
+    # Rename columns dynamically
+    rfm = rfm.rename(columns={
+        mapping['last_seen']: 'recency',
+        mapping['orders']: 'frequency',
+        mapping['revenue']: 'monetary'
+    })
 
     # RFM Segmentation with safe binning
     rfm['R_score'] = pd.qcut(rfm['recency'], q=4, labels=[4, 3, 2, 1], duplicates='drop')
@@ -93,6 +98,7 @@ def calculate_rfm(df, mapping):
 
     rfm['Segment'] = rfm.apply(classify_rfm, axis=1)
     return rfm
+
 
 # =============================
 # HOME
