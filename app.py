@@ -32,7 +32,7 @@ if "predicted_df" not in st.session_state:
 # HOME
 # =============================
 if page == "Home":
-    st.title("RetentionOS – Universal Churn Predictor")
+    st.title("RetentionOS – User Turning Point")
 
     uploaded_file = st.file_uploader("📥 Upload CSV or Excel file", type=["csv", "xlsx"])
     if uploaded_file:
