@@ -127,7 +127,7 @@ elif section == "Segments":
         st.markdown("### 🧠 ML-Based Churn Prediction")
         df_clean = df.dropna(subset=["last_active_days", "orders", "total_sessions"])
         X = df_clean[["last_active_days", "orders", "total_sessions"]]
-        y = (df_clean["orders"] == 0).astype(int)  # Simulated churn label: 1 if no orders
+        y = (df_clean["orders"] == 0).astype(int)  # Simulated churn label
 
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
@@ -146,7 +146,6 @@ elif section == "Segments":
                 return "🟢 Low"
 
         df_clean['risk_level'] = df_clean['churn_probability'].apply(label_risk)
-
         df_clean['churn_score'] = (df_clean['churn_probability'] * 3).round().astype(int)
         st.session_state.df = df_clean
 
@@ -155,6 +154,20 @@ elif section == "Segments":
         filtered = df_clean[df_clean["risk_level"] == selected_risk]
         st.write(f"Filtered users in {selected_risk} risk: {filtered.shape[0]}")
         st.dataframe(filtered)
+
+        # --- Visual Insights ---
+        st.markdown("### 📈 ML-Based Churn Insights")
+
+        fig1 = px.histogram(df_clean, x="churn_probability", nbins=20, title="Churn Probability Distribution")
+        st.plotly_chart(fig1, use_container_width=True)
+
+        fig2 = px.pie(df_clean, names="risk_level", title="Risk Level Breakdown (ML)")
+        st.plotly_chart(fig2, use_container_width=True)
+
+        fig3 = px.scatter(df_clean, x="orders", y="churn_probability", color="risk_level",
+                          title="Churn Probability vs Orders",
+                          labels={"orders": "Orders", "churn_probability": "Churn Probability"})
+        st.plotly_chart(fig3, use_container_width=True)
 
 else:
     st.info("👆 Upload a CSV or Excel file to begin.")
