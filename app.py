@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from fuzzywuzzy import fuzz
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+import numpy as np
 
 # Page configuration
 st.set_page_config(page_title="RetentionOS", layout="wide")
@@ -11,15 +15,12 @@ st.sidebar.markdown("### 📂 Navigation")
 menu = ["Home", "Summary", "Dashboard", "Segments"]
 section = st.sidebar.radio("Go to", menu)
 
-# Add space and About button at bottom
 st.sidebar.markdown("<br><br><br><br><br><br><br><br><br>", unsafe_allow_html=True)
 about_clicked = st.sidebar.button("🔍 About RetentionOS")
 
-# File upload shared state
 if "df" not in st.session_state:
     st.session_state.df = None
 
-# --- ABOUT PAGE (Triggered separately) ---
 if about_clicked:
     st.title("About RetentionOS")
     st.markdown("""
@@ -39,7 +40,6 @@ if about_clicked:
     """)
     st.stop()
 
-# --- HOME PAGE ---
 if section == "Home":
     st.title("RetentionOS – A User Turning Point")
     uploaded_file = st.file_uploader("Upload a CSV or Excel file", type=["csv", "xlsx"])
@@ -56,7 +56,6 @@ if section == "Home":
             st.error("❌ Could not read the uploaded file.")
             st.exception(e)
 
-# --- SUMMARY PAGE ---
 elif section == "Summary":
     if st.session_state.df is None:
         st.warning("⚠️ Please upload a file from the Home page first.")
@@ -65,7 +64,6 @@ elif section == "Summary":
         st.subheader("📌 Sample Data")
         st.dataframe(st.session_state.df.head())
 
-# --- DASHBOARD PAGE ---
 elif section == "Dashboard":
     if st.session_state.df is None:
         st.warning("⚠️ Please upload a file from the Home page first.")
@@ -73,23 +71,24 @@ elif section == "Dashboard":
         st.title("📊 Dashboard Metrics")
         df = st.session_state.df
 
-        st.metric("Total Users", len(df))
-        st.metric("High Risk Users", df[df["risk_level"] == "High"].shape[0])
-        st.metric("Average Churn Score", round(df["churn_score"].mean(), 2))
+        if "churn_score" in df.columns and "risk_level" in df.columns:
+            st.metric("Total Users", len(df))
+            st.metric("High Risk Users", df[df["risk_level"] == "🔴 High"].shape[0])
+            st.metric("Average Churn Score", round(df["churn_score"].mean(), 2))
 
-        st.subheader("Churn Score Distribution")
-        fig1 = px.histogram(df, x="churn_score", nbins=20, title="Churn Score Histogram")
-        st.plotly_chart(fig1, use_container_width=True)
+            st.subheader("Churn Score Distribution")
+            fig1 = px.histogram(df, x="churn_score", nbins=20, title="Churn Score Histogram")
+            st.plotly_chart(fig1, use_container_width=True)
 
-        st.subheader("Risk Level Distribution")
-        fig2 = px.pie(df, names="risk_level", title="Risk Level Breakdown")
-        st.plotly_chart(fig2, use_container_width=True)
+            st.subheader("Risk Level Distribution")
+            fig2 = px.pie(df, names="risk_level", title="Risk Level Breakdown")
+            st.plotly_chart(fig2, use_container_width=True)
 
-        st.subheader("Cart Value by Risk Level")
-        fig3 = px.box(df, x="risk_level", y="cart_value", title="Cart Value vs Risk Level")
-        st.plotly_chart(fig3, use_container_width=True)
+            if "cart_value" in df.columns:
+                st.subheader("Cart Value by Risk Level")
+                fig3 = px.box(df, x="risk_level", y="cart_value", title="Cart Value vs Risk Level")
+                st.plotly_chart(fig3, use_container_width=True)
 
-# --- SEGMENT PAGE ---
 elif section == "Segments":
     if st.session_state.df is None:
         st.warning("⚠️ Please upload a file from the Home page first.")
@@ -116,43 +115,44 @@ elif section == "Segments":
 
         mapping = auto_map_columns(df)
 
-        # --- Manual fallback mapping ---
         st.markdown("### 🔍 Column Mapping")
         for key in expected_fields:
             if key not in mapping:
                 mapping[key] = st.selectbox(f"Select column for **{key}**", df.columns)
             st.markdown(f"✅ `{key}` → `{mapping[key]}`")
 
-        # --- Standardize ---
         df = df.rename(columns={mapping[k]: k for k in mapping})
 
-        # --- Scoring logic ---
-        def score_user(row):
-            score = 0
-            if row['last_active_days'] > 14:
-                score += 1
-            if row['orders'] < 1:
-                score += 1
-            if row['total_sessions'] < 3:
-                score += 1
-            return score
+        # --- Machine Learning Prediction ---
+        st.markdown("### 🧠 ML-Based Churn Prediction")
+        df_clean = df.dropna(subset=["last_active_days", "orders", "total_sessions"])
+        X = df_clean[["last_active_days", "orders", "total_sessions"]]
+        y = (df_clean["orders"] == 0).astype(int)  # Simulated churn label: 1 if no orders
 
-        df['churn_score'] = df.apply(score_user, axis=1)
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+
+        model = LogisticRegression()
+        model.fit(X_scaled, y)
+
+        df_clean["churn_probability"] = model.predict_proba(X_scaled)[:, 1]
 
         def label_risk(score):
-            if score >= 2:
+            if score >= 0.7:
                 return "🔴 High"
-            elif score == 1:
+            elif score >= 0.4:
                 return "🟠 Medium"
             else:
                 return "🟢 Low"
 
-        df['risk_level'] = df['churn_score'].apply(label_risk)
+        df_clean['risk_level'] = df_clean['churn_probability'].apply(label_risk)
 
-        # --- Display Results ---
+        df_clean['churn_score'] = (df_clean['churn_probability'] * 3).round().astype(int)
+        st.session_state.df = df_clean
+
         st.markdown("### 📊 Churn Risk Segments")
-        selected_risk = st.selectbox("Select Risk Level", df["risk_level"].unique())
-        filtered = df[df["risk_level"] == selected_risk]
+        selected_risk = st.selectbox("Select Risk Level", df_clean["risk_level"].unique())
+        filtered = df_clean[df_clean["risk_level"] == selected_risk]
         st.write(f"Filtered users in {selected_risk} risk: {filtered.shape[0]}")
         st.dataframe(filtered)
 
