@@ -62,9 +62,9 @@ def calculate_rfm(df, mapping):
     rfm.columns = [mapping['user_id'], 'recency', 'frequency', 'monetary']
 
     # RFM Segmentation
-    rfm['R_score'] = pd.qcut(rfm['recency'], 4, labels=[4, 3, 2, 1])
-    rfm['F_score'] = pd.qcut(rfm['frequency'].rank(method="first"), 4, labels=[1, 2, 3, 4])
-    rfm['M_score'] = pd.qcut(rfm['monetary'], 4, labels=[1, 2, 3, 4])
+   rfm['R_score'] = pd.qcut(rfm['recency'], 4, labels=[4, 3, 2, 1], duplicates='drop')
+rfm['F_score'] = pd.qcut(rfm['frequency'].rank(method="first"), 4, labels=[1, 2, 3, 4], duplicates='drop')
+rfm['M_score'] = pd.qcut(rfm['monetary'], 4, labels=[1, 2, 3, 4], duplicates='drop')
     rfm['RFM_Segment'] = rfm['R_score'].astype(str) + rfm['F_score'].astype(str) + rfm['M_score'].astype(str)
 
     def classify_rfm(row):
