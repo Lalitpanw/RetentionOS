@@ -4,123 +4,139 @@ import plotly.express as px
 from fuzzywuzzy import fuzz
 import openai
 
-# --- Set OpenAI API Key ---
+# --- Set your OpenAI API key ---
 openai.api_key = "your-openai-api-key"
 
-# --- Page setup ---
-st.set_page_config(page_title="RetentionOS", layout="centered")
-st.title("📊 RetentionOS – A User Turning Point")
-st.markdown("_Upload your user data → Predict churn → Auto-nudge users._")
+# --- Page Config ---
+st.set_page_config(page_title="RetentionOS", layout="wide")
+st.title("📊 RetentionOS – AI-powered Churn & Retention Toolkit")
 
-# --- Upload file ---
-uploaded_file = st.file_uploader("📥 Upload your CSV file", type=["csv", "xlsx"])
-if uploaded_file:
-    if uploaded_file.name.endswith(".xlsx"):
-        df = pd.read_excel(uploaded_file)
-    else:
-        df = pd.read_csv(uploaded_file)
-    st.success(f"✅ Uploaded: {uploaded_file.name}")
+# --- Sidebar Navigation ---
+st.sidebar.title("📁 Navigation")
+section = st.sidebar.radio("Go to", [
+    "Home",
+    "Churn Analysis",
+    "User Segments",
+    "Nudge Suggestions",
+    "RFM",
+    "RAG Insights"
+])
 
-    # --- Auto-map fields ---
-    expected_fields = {
-        'last_active_days': ['last_seen', 'last_active', 'inactive_days'],
-        'total_sessions': ['sessions', 'login_count', 'visits'],
-        'orders': ['orders', 'purchases', 'transactions'],
-        'revenue': ['amount_spent', 'order_value', 'lifetime_value'],
-        'cart_value': ['cart_value', 'cart_amount']
-    }
+# --- Global Upload ---
+if 'df' not in st.session_state:
+    st.session_state.df = None
 
-    def auto_map_columns(df):
-        mapping = {}
-        for key, options in expected_fields.items():
-            for col in df.columns:
-                for option in options:
-                    if fuzz.partial_ratio(col.lower(), option.lower()) > 80:
-                        mapping[key] = col
-                        break
-        return mapping
+if section == "Home":
+    st.header("🏠 Home")
+    st.markdown("_Upload your user file to get started with churn prediction & retention analysis._")
+    uploaded_file = st.file_uploader("📥 Upload CSV or Excel", type=["csv", "xlsx"])
 
-    mapping = auto_map_columns(df)
-
-    # --- Manual fallback ---
-    st.subheader("🛠 Column Mapping")
-    for key in expected_fields:
-        if key not in mapping:
-            mapping[key] = st.selectbox(f"Select column for **{key}**", df.columns)
-        st.markdown(f"✅ `{key}` → `{mapping[key]}`")
-
-    # --- Rename columns ---
-    df = df.rename(columns={mapping[k]: k for k in mapping})
-
-    # --- Churn scoring ---
-    def score_user(row):
-        score = 0
-        if row['last_active_days'] > 14:
-            score += 1
-        if row['orders'] < 1:
-            score += 1
-        if row['total_sessions'] < 3:
-            score += 1
-        return score
-
-    df['churn_score'] = df.apply(score_user, axis=1)
-
-    def label_risk(score):
-        if score >= 2:
-            return "🔴 High"
-        elif score == 1:
-            return "🟠 Medium"
+    if uploaded_file:
+        if uploaded_file.name.endswith(".xlsx"):
+            df = pd.read_excel(uploaded_file)
         else:
-            return "🟢 Low"
+            df = pd.read_csv(uploaded_file)
+        st.session_state.df = df
+        st.success("✅ File uploaded successfully.")
 
-    df['churn_risk'] = df['churn_score'].apply(label_risk)
+elif section == "Churn Analysis":
+    st.header("📉 Churn Analysis")
 
-    # --- Dashboard ---
-    st.header("📈 Dashboard Metrics")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Users", len(df))
-    col2.metric("High Risk Users", df[df["churn_risk"] == "🔴 High"].shape[0])
-    col3.metric("Avg. Churn Score", round(df["churn_score"].mean(), 2))
+    if st.session_state.df is not None:
+        df = st.session_state.df
 
-    st.plotly_chart(px.pie(df, names="churn_risk", title="Risk Level Distribution"), use_container_width=True)
-    if 'cart_value' in df.columns:
-        st.plotly_chart(px.box(df, x="churn_risk", y="cart_value", title="Cart Value by Risk Level"), use_container_width=True)
+        # Auto-map
+        expected_fields = {
+            'last_active_days': ['last_seen', 'last_active'],
+            'total_sessions': ['sessions', 'login_count'],
+            'orders': ['orders', 'transactions'],
+        }
 
-    # --- Nudge Generator ---
-    st.subheader("💬 Generate Personalized Nudges")
-    if st.button("🧠 Generate GPT Nudges"):
-        def generate_nudge(user_row):
-            prompt = f"""
-            The user is in the {user_row['churn_risk']} churn risk segment.
-            Last active: {user_row['last_active_days']} days ago.
-            Orders: {user_row['orders']}, Sessions: {user_row['total_sessions']}, Cart Value: ₹{user_row.get('cart_value', 'N/A')}.
-            Write a short, friendly nudge message to re-engage them.
-            """
-            try:
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.6,
-                    max_tokens=50
-                )
-                return response['choices'][0]['message']['content'].strip()
-            except Exception as e:
-                return f"Error: {e}"
+        def auto_map_columns(df):
+            mapping = {}
+            for key, options in expected_fields.items():
+                for col in df.columns:
+                    for option in options:
+                        if fuzz.partial_ratio(col.lower(), option.lower()) > 80:
+                            mapping[key] = col
+            return mapping
 
-        with st.spinner("Generating nudges with GPT..."):
-            df['nudge'] = df.apply(generate_nudge, axis=1)
-        st.success("Nudges generated!")
-        st.dataframe(df[['churn_risk', 'nudge']])
+        mapping = auto_map_columns(df)
 
-    # --- Display Segments ---
-    st.subheader("🔍 Explore Risk Segments")
-    selected_risk = st.selectbox("Filter by Risk Level", df['churn_risk'].unique())
-    filtered = df[df['churn_risk'] == selected_risk]
-    st.write(f"Users in {selected_risk}: {filtered.shape[0]}")
-    st.dataframe(filtered)
+        # Manual fallback
+        for key in expected_fields:
+            if key not in mapping:
+                mapping[key] = st.selectbox(f"Select column for `{key}`", df.columns)
+        df = df.rename(columns={mapping[k]: k for k in mapping})
 
-    # --- Optional: Download Results ---
-    st.download_button("📤 Download Segment Data", filtered.to_csv(index=False), file_name="segment.csv", mime="text/csv")
+        # Scoring
+        def score_user(row):
+            score = 0
+            if row['last_active_days'] > 14: score += 1
+            if row['orders'] < 1: score += 1
+            if row['total_sessions'] < 3: score += 1
+            return score
 
-else:
-    st.info("👆 Please upload a CSV or Excel file to get started.")
+        df['churn_score'] = df.apply(score_user, axis=1)
+        df['churn_risk'] = df['churn_score'].apply(lambda s: "🔴 High" if s >= 2 else ("🟠 Medium" if s == 1 else "🟢 Low"))
+        st.session_state.df = df
+
+        # Metrics + Charts
+        st.metric("Total Users", len(df))
+        st.metric("Avg. Churn Score", round(df["churn_score"].mean(), 2))
+        st.plotly_chart(px.pie(df, names="churn_risk", title="Churn Risk Distribution"), use_container_width=True)
+
+    else:
+        st.warning("⚠️ Please upload a file on the Home page first.")
+
+elif section == "User Segments":
+    st.header("📌 User Segments")
+    if st.session_state.df is not None:
+        df = st.session_state.df
+        selected_risk = st.selectbox("Select Risk Level", df["churn_risk"].unique())
+        st.write(f"Users in {selected_risk}: {df[df['churn_risk'] == selected_risk].shape[0]}")
+        st.dataframe(df[df["churn_risk"] == selected_risk])
+    else:
+        st.warning("⚠️ No data loaded.")
+
+elif section == "Nudge Suggestions":
+    st.header("💬 GPT-Powered Nudge Suggestions")
+
+    if st.session_state.df is not None:
+        df = st.session_state.df
+
+        if st.button("🧠 Generate Nudges"):
+            def generate_nudge(row):
+                prompt = f"""
+                The user is in {row['churn_risk']} churn risk.
+                Last seen {row['last_active_days']} days ago. Orders: {row['orders']}, Sessions: {row['total_sessions']}.
+                Suggest a short friendly re-engagement message.
+                """
+                try:
+                    response = openai.ChatCompletion.create(
+                        model="gpt-3.5-turbo",
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.7,
+                        max_tokens=60
+                    )
+                    return response.choices[0].message.content.strip()
+                except:
+                    return "Error"
+
+            with st.spinner("Generating..."):
+                df['nudge'] = df.apply(generate_nudge, axis=1)
+            st.success("✅ Nudges ready!")
+            st.dataframe(df[['churn_risk', 'nudge']])
+        else:
+            st.info("Click the button to generate AI-powered nudges.")
+
+    else:
+        st.warning("⚠️ Please upload user data first.")
+
+elif section == "RFM":
+    st.header("📊 RFM Segmentation")
+    st.info("🚧 Coming soon: RFM-based segmentation with Recency, Frequency, Monetary scoring.")
+
+elif section == "RAG Insights":
+    st.header("🧠 GPT Assistant (RAG-style)")
+    st.info("🚧 Coming soon: Ask GPT questions like 'Why are high-risk users churning this week?'")
