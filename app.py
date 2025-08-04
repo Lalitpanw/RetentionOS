@@ -1,208 +1,174 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
 from fuzzywuzzy import fuzz
-from datetime import datetime
 
-# Page config
+# Page configuration
 st.set_page_config(page_title="RetentionOS", layout="wide")
-
-# Sidebar Navigation
-st.sidebar.markdown("### 📂 Navigation")
-page = st.sidebar.radio("Go to", ["Home", "Churn Prediction", "User Segments", "Dashboard", "RFM Analysis"])
-
-# About section at bottom
-st.sidebar.markdown("<br><br><br><hr>", unsafe_allow_html=True)
-if st.sidebar.button("ℹ️ About RetentionOS"):
-    st.info("""
-    **RetentionOS** is a lightweight churn prediction tool.
-    - Upload data → Train model → Predict churn → Export results.
-    - Designed for early-stage teams and product managers.
-    """)
-
-# Shared session state
-if "df" not in st.session_state:
-    st.session_state.df = None
-if "predicted_df" not in st.session_state:
-    st.session_state.predicted_df = None
-
-# Smart Column Mapper for RFM
-RFM_TARGETS = {
-    'user_id': ['user_id', 'customer_id', 'id'],
-    'last_seen': ['last_seen', 'last_active', 'last_activity_date'],
-    'orders': ['orders', 'purchases', 'transactions'],
-    'revenue': ['revenue', 'total_spent', 'amount_spent']
-}
-
-def smart_rfm_mapper(df):
-    mapping = {}
-    for target, options in RFM_TARGETS.items():
-        for col in df.columns:
-            for option in options:
-                if fuzz.partial_ratio(col.lower(), option.lower()) > 80:
-                    mapping[target] = col
-                    break
-        if target not in mapping:
-            mapping[target] = st.selectbox(f"Select column for **{target}**", df.columns)
-    return mapping
-
-# RFM Calculation Function
-def calculate_rfm(df, mapping):
-    df[mapping['last_seen']] = pd.to_datetime(df[mapping['last_seen']], errors='coerce')
-    snapshot_date = df[mapping['last_seen']].max()
-
-    # Group and compute RFM metrics
-    rfm = (
-        df.groupby(mapping['user_id'], as_index=False)
-        .agg({
-            mapping['last_seen']: lambda x: (snapshot_date - x.max()).days,
-            mapping['orders']: 'count',
-            mapping['revenue']: 'sum'
-        })
-    )
-
-    # Rename columns dynamically
-    rfm = rfm.rename(columns={
-        mapping['last_seen']: 'recency',
-        mapping['orders']: 'frequency',
-        mapping['revenue']: 'monetary'
-    })
-
-    # RFM Segmentation with safe binning
-    rfm['R_score'] = pd.qcut(rfm['recency'], q=4, labels=[4, 3, 2, 1], duplicates='drop')
-    rfm['F_score'] = pd.qcut(rfm['frequency'].rank(method="first"), q=4, labels=[1, 2, 3, 4], duplicates='drop')
-    rfm['M_score'] = pd.qcut(rfm['monetary'], q=4, labels=[1, 2, 3, 4], duplicates='drop')
-
-    rfm['RFM_Segment'] = (
-        rfm['R_score'].astype(str) +
-        rfm['F_score'].astype(str) +
-        rfm['M_score'].astype(str)
-    )
-
-    def classify_rfm(row):
-        if row['RFM_Segment'] == '444':
-            return 'Champion'
-        elif row['R_score'] == 4:
-            return 'Loyal'
-        elif row['F_score'] == 4:
-            return 'Frequent'
-        elif row['M_score'] == 4:
-            return 'High Value'
-        elif row['R_score'] == 1:
-            return 'At Risk'
-        else:
-            return 'Others'
-
-    rfm['Segment'] = rfm.apply(classify_rfm, axis=1)
-    return rfm
-
-
-# =============================
-# HOME
-# =============================
-if page == "Home":
-    st.title("RetentionOS – Universal Churn Predictor")
-    uploaded_file = st.file_uploader("📅 Upload CSV or Excel file", type=["csv", "xlsx"])
-    if uploaded_file:
-        try:
-            if uploaded_file.name.endswith(".csv"):
-                df = pd.read_csv(uploaded_file)
-            else:
-                df = pd.read_excel(uploaded_file)
-            st.session_state.df = df
-            st.success("✅ File uploaded successfully!")
-            st.dataframe(df.head())
-        except Exception as e:
-            st.error("❌ Failed to read file.")
-            st.exception(e)
-
-# =============================
-# CHURN PREDICTION
-# =============================
-elif page == "Churn Prediction":
-    st.title("📉 Churn Prediction")
+@@ -68,59 +69,25 @@
+elif section == "Dashboard":
     if st.session_state.df is None:
-        st.warning("⚠️ Please upload a dataset from the Home page first.")
+        st.warning("⚠️ Please upload a file from the Home page first.")
+from fuzzywuzzy import fuzz
+
+st.set_page_config(page_title="RetentionOS", layout="centered")
+
+st.title("📊 RetentionOS – A User Turning Point")
+st.markdown("_Upload your user data → Predict churn → Auto-nudge users._")
+
+# --- Step 1: Upload file ---
+uploaded_file = st.file_uploader("📥 Upload your CSV file", type=["csv", "xlsx"])
+
+if uploaded_file:
+    # --- Step 2: Load data ---
+    if uploaded_file.name.endswith(".xlsx"):
+        df = pd.read_excel(uploaded_file)
     else:
-        df = st.session_state.df.copy()
-        df = df.select_dtypes(include=['number']).dropna()
-        if df.shape[1] < 2:
-            st.warning("Not enough numeric columns for training.")
-        else:
-            st.markdown("### Training a model on the fly...")
-            df['churned'] = [1 if i % 3 == 0 else 0 for i in range(len(df))]
-            X = df.drop("churned", axis=1)
-            y = df["churned"]
+        st.title("📊 Dashboard Metrics")
+        df = st.session_state.df
+        df = pd.read_csv(uploaded_file)
 
-            model = RandomForestClassifier()
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-            model.fit(X_train, y_train)
-
-            probs = model.predict_proba(X)[:, 1]
-            df['churn_probability'] = probs.round(2)
-            df['risk_level'] = df['churn_probability'].apply(lambda x: "High" if x > 0.6 else ("Medium" if x > 0.3 else "Low"))
-
-            st.session_state.predicted_df = df
-            st.success("✅ Prediction complete!")
-            st.dataframe(df[['churn_probability', 'risk_level']].head())
-
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Download Churn Predictions", data=csv, file_name="churn_predictions.csv", mime="text/csv")
-
-# =============================
-# USER SEGMENTS
-# =============================
-elif page == "User Segments":
-    st.title("👥 User Segments")
-    if st.session_state.predicted_df is None:
-        st.warning("⚠️ Please run a churn prediction first.")
-    else:
-        df = st.session_state.predicted_df
-        for risk in ['High', 'Medium', 'Low']:
-            segment_df = df[df['risk_level'] == risk]
-            st.subheader(f"{risk} Risk Users")
-            st.write(segment_df.head())
-
-# =============================
-# DASHBOARD
-# =============================
-elif page == "Dashboard":
-    st.title("📊 Dashboard")
-    if st.session_state.predicted_df is None:
-        st.warning("⚠️ Please run a churn prediction first.")
-    else:
-        df = st.session_state.predicted_df
         st.metric("Total Users", len(df))
-        st.metric("High Risk Users", df[df['risk_level'] == "High"].shape[0])
-        st.metric("Average Churn Probability", round(df['churn_probability'].mean(), 2))
+        st.metric("High Risk Users", df[df["risk_level"] == "High"].shape[0])
+        st.metric("Average Churn Score", round(df["churn_score"].mean(), 2))
+    st.success(f"File uploaded: {uploaded_file.name}")
+    st.markdown(f"📄 **Columns detected**: `{', '.join(df.columns)}`")
 
-        st.plotly_chart(px.histogram(df, x='churn_probability', nbins=20, title="Churn Probability Distribution"))
-        st.plotly_chart(px.pie(df, names='risk_level', title="Risk Level Distribution"))
+        st.subheader("Churn Score Distribution")
+        fig1 = px.histogram(df, x="churn_score", nbins=20, title="Churn Score Histogram")
+        st.plotly_chart(fig1, use_container_width=True)
+    # --- Step 3: Auto-map columns ---
+    expected_fields = {
+        'last_active_days': ['last_seen', 'last_active', 'inactive_days'],
+        'total_sessions': ['sessions', 'login_count', 'visits'],
+        'orders': ['orders', 'purchases', 'transactions'],
+        'revenue': ['amount_spent', 'order_value', 'lifetime_value'],
+    }
 
-# =============================
-# RFM Analysis
-# =============================
-elif page == "RFM Analysis":
-    st.title("🧮 RFM Analysis")
-    if st.session_state.df is None:
-        st.warning("⚠️ Please upload your dataset from the Home page.")
-    else:
-        df = st.session_state.df.copy()
-        mapping = smart_rfm_mapper(df)
-        rfm = calculate_rfm(df, mapping)
-        st.dataframe(rfm.head())
+        st.subheader("Risk Level Distribution")
+        fig2 = px.pie(df, names="risk_level", title="Risk Level Breakdown")
+        st.plotly_chart(fig2, use_container_width=True)
+    def auto_map_columns(df):
+        mapping = {}
+        for key, possible_names in expected_fields.items():
+            for col in df.columns:
+                for option in possible_names:
+                    if fuzz.partial_ratio(col.lower(), option.lower()) > 80:
+                        mapping[key] = col
+                        break
+        return mapping
 
-        st.subheader("📊 RFM Distributions")
-        st.plotly_chart(px.histogram(rfm, x='recency', nbins=20, title="Recency Distribution"))
-        st.plotly_chart(px.histogram(rfm, x='frequency', nbins=20, title="Frequency Distribution"))
-        st.plotly_chart(px.histogram(rfm, x='monetary', nbins=20, title="Monetary Distribution"))
-
-        st.subheader("🌎 Segment Breakdown")
-        fig3 = px.pie(rfm, names='Segment', title="RFM Segment Share")
+        st.subheader("Cart Value by Risk Level")
+        fig3 = px.box(df, x="risk_level", y="cart_value", title="Cart Value vs Risk Level")
         st.plotly_chart(fig3, use_container_width=True)
+    mapping = auto_map_columns(df)
 
-        csv = rfm.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download RFM Data", data=csv, file_name="rfm_analysis.csv", mime="text/csv")
+# --- SEGMENT PAGE ---
+elif section == "Segments":
+@@ -129,50 +96,65 @@ def auto_map_columns(df):
+    else:
+        st.title("📌 Segmentation Insights")
+        df = st.session_state.df
+
+        expected_fields = {
+            'last_active_days': ['last_seen', 'last_active', 'inactive_days'],
+            'total_sessions': ['sessions', 'login_count', 'visits'],
+            'orders': ['orders', 'purchases', 'transactions'],
+            'revenue': ['amount_spent', 'order_value', 'lifetime_value'],
+        }
+
+        def auto_map_columns(df):
+            mapping = {}
+            for key, possible_names in expected_fields.items():
+                for col in df.columns:
+                    for option in possible_names:
+                        if fuzz.partial_ratio(col.lower(), option.lower()) > 80:
+                            mapping[key] = col
+                            break
+            return mapping
+
+        mapping = auto_map_columns(df)
+
+        # --- Manual fallback mapping ---
+        st.markdown("### 🔍 Column Mapping")
+        for key in expected_fields:
+            if key not in mapping:
+                mapping[key] = st.selectbox(f"Select column for **{key}**", df.columns)
+            st.markdown(f"✅ `{key}` → `{mapping[key]}`")
+
+        # --- Standardize ---
+        df = df.rename(columns={mapping[k]: k for k in mapping})
+
+        # --- Scoring logic ---
+        def score_user(row):
+            score = 0
+            if row['last_active_days'] > 14:
+                score += 1
+            if row['orders'] < 1:
+                score += 1
+            if row['total_sessions'] < 3:
+                score += 1
+            return score
+
+        df['churn_score'] = df.apply(score_user, axis=1)
+
+        def label_risk(score):
+            if score >= 2:
+                return "🔴 High"
+            elif score == 1:
+                return "🟠 Medium"
+            else:
+                return "🟢 Low"
+
+        df['risk_level'] = df['churn_score'].apply(label_risk)
+
+        # --- Display Results ---
+        st.markdown("### 📊 Churn Risk Segments")
+        selected_risk = st.selectbox("Select Risk Level", df["risk_level"].unique())
+        filtered = df[df["risk_level"] == selected_risk]
+        st.write(f"Filtered users in {selected_risk} risk: {filtered.shape[0]}")
+        st.dataframe(filtered)
+    # --- Step 4: Manual fallback ---
+    st.markdown("### 🔍 Column Mapping")
+    for key in expected_fields:
+        if key not in mapping:
+            mapping[key] = st.selectbox(f"Select column for **{key}**", df.columns)
+        st.markdown(f"✅ `{key}` → `{mapping[key]}`")
+
+    # --- Step 5: Standardize ---
+    df = df.rename(columns={mapping[k]: k for k in mapping})
+
+    # --- Step 6: Scoring logic (simple rules) ---
+    def score_user(row):
+        score = 0
+        if row['last_active_days'] > 14:
+            score += 1
+        if row['orders'] < 1:
+            score += 1
+        if row['total_sessions'] < 3:
+            score += 1
+        return score
+
+    df['churn_score'] = df.apply(score_user, axis=1)
+
+    def label_risk(score):
+        if score >= 2:
+            return "🔴 High"
+        elif score == 1:
+            return "🟠 Medium"
+        else:
+            return "🟢 Low"
+
+    df['churn_risk'] = df['churn_score'].apply(label_risk)
+
+    # --- Step 7: Display Results ---
+    st.markdown("### 📊 Churn Risk Segments")
+    st.dataframe(df[['churn_risk', 'last_active_days', 'orders', 'total_sessions']])
+
+    # --- Optional: Future Add-ons ---
+    # - Nudge message generator
+    # - Export filtered segments
+    # - Twilio API integration
+
+else:
+    st.info("👆 Upload a CSV or Excel file to begin.")
