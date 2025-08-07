@@ -1,95 +1,81 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+from fuzzywuzzy import fuzz
 
+# Page config
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
-# --- Custom CSS for gradient sidebar and main UI ---
+# Sidebar Navigation
 st.markdown("""
-    <style>
-    /* Sidebar gradient */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1f2c47, #0d1526);
-        color: white;
-    }
+<style>
+/* Sidebar background */
+section[data-testid="stSidebar"] {
+    background-color: #0f1c2e;
+}
 
-    /* Sidebar title */
-    .sidebar .sidebar-content {
-        padding-top: 2rem;
-    }
+/* Sidebar text color */
+section[data-testid="stSidebar"] .css-1v3fvcr {
+    color: #e1e6f0 !important;
+    font-weight: 500;
+}
 
-    /* Sidebar text styling */
-    .css-10trblm {
-        font-size: 16px !important;
-        font-weight: 600 !important;
-        color: white !important;
-    }
+/* Active item */
+section[data-testid="stSidebar"] .css-1v3fvcr > div[aria-checked="true"] {
+    background-color: transparent;
+    font-weight: 700;
+    color: #ffffff !important;
+}
 
-    /* File upload box styling */
-    .upload-container {
-        border: 2px solid #e5e5e5;
-        border-radius: 10px;
-        padding: 3rem;
-        text-align: center;
-        background-color: #f9f9f9;
-    }
+/* Section titles */
+section[data-testid="stSidebar"] h2 {
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    color: #ffffff;
+    margin-bottom: 1rem;
+}
 
-    .upload-btn {
-        background-color: white;
-        padding: 10px 30px;
-        border-radius: 5px;
-        border: 1px solid #ccc;
-        font-weight: 600;
-        margin-top: 1rem;
-        cursor: pointer;
-    }
-
-    .main-title {
-        font-size: 30px;
-        font-weight: 700;
-    }
-
-    .subtext {
-        font-size: 16px;
-        color: #666;
-        margin-bottom: 2rem;
-    }
-
-    .coming-soon {
-        font-size: 14px;
-        color: gray;
-    }
-    </style>
+/* Label fixes */
+section[data-testid="stSidebar"] label {
+    color: #ffffff !important;
+    font-size: 16px !important;
+}
+</style>
 """, unsafe_allow_html=True)
 
-# --- Sidebar ---
-st.sidebar.markdown("## 🌐 RetentionOS")
-st.sidebar.markdown("### Navigation")
-st.sidebar.radio("Go to", [
-    "📉 Churn Analysis",
-    "👥 User Segments",
-    "💬 Nudge Suggestions",
-    "📊 RFM",
-    "📆 Cohort Analysis",
-    "🧪 A/B Testing",
-    "🚦 RAG Insights (Coming Soon)"
-], label_visibility="collapsed")
+# Sidebar navigation
+st.sidebar.title("🌐 RetentionOS")
+st.sidebar.markdown("## Navigation")
+section = st.sidebar.radio("", [
+    " Churn Analysis",
+    " User Segments",
+    " Nudge Suggestions",
+    " RFM",
+    " Cohort Analysis",
+    " A/B Testing",
+    " RAG Insights (Coming Soon)"
+])
 
-# --- Main Header ---
-st.markdown("<div class='main-title'>📊 RetentionOS – AI-powered Churn & Retention</div>", unsafe_allow_html=True)
-st.markdown("<div class='subtext'>Upload your user file to get started with churn prediction & retention analysis.</div>", unsafe_allow_html=True)
+# Main Area UI
+st.markdown("""
+### <span style='font-size:32px;'>📊 RetentionOS – AI-powered Churn & Retention</span>
+<p style='font-size:16px;'>Upload your user file to get started with churn prediction & retention analysis.</p>
+""", unsafe_allow_html=True)
 
-# --- Upload Box ---
-uploaded_file = st.file_uploader("", type=["csv", "xlsx"], label_visibility="collapsed")
+# File uploader
+uploaded_file = st.file_uploader("Upload CSV or Excel", type=["csv", "xlsx"])
 
 if uploaded_file:
-    st.success(f"✅ File uploaded: `{uploaded_file.name}`")
-    df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
+    if uploaded_file.name.endswith(".xlsx"):
+        df = pd.read_excel(uploaded_file)
+    else:
+        df = pd.read_csv(uploaded_file)
     st.session_state.df = df
+    st.success("✅ File uploaded successfully!")
 else:
-    st.markdown("""
-        <div class='upload-container'>
-            <div style='font-size:50px;'>⬇️</div>
-            <div class='upload-btn'>Upload CSV or Excel</div>
-            <div style='margin-top:1rem;'>Upload your user file to get started with churn<br>prediction & retention analysis.</div>
-        </div>
-    """, unsafe_allow_html=True)
+    st.warning("⚠️ Please upload a user data file to begin.")
+
+# Load and view placeholder section
+if 'df' in st.session_state:
+    st.subheader(f"You selected: {section}")
+    st.write("We'll display the relevant features here soon...")
