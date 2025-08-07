@@ -2,74 +2,123 @@ import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from io import BytesIO
+import plotly.express as px
+import base64
+import io
 
-# Page Config
-st.set_page_config(page_title="RetentionOS – Cohort Analysis", layout="wide")
+# Page config
+st.set_page_config(page_title="RetentionOS", layout="wide")
 
-# Sidebar Styling
+# Sidebar
 st.markdown("""
     <style>
-    .sidebar .sidebar-content {
-        background-color: #1e293b;
-        color: white;
-    }
-    .css-1v3fvcr {background-color: #1e293b;}
-    .css-1d391kg {color: white;}
+        .sidebar .sidebar-content {
+            background-color: #1E2B3A;
+            color: white;
+        }
+        .css-1aumxhk, .css-qcqlej {
+            color: white;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# Sidebar Content
 st.sidebar.markdown("### 🌙 RetentionOS")
-section = st.sidebar.radio("Navigation", ["📈 Cohort Analysis", "📥 Upload Data"])
+st.sidebar.markdown("#### Navigation")
+section = st.sidebar.radio("", [
+    " Churn Analysis",
+    " User Segments",
+    " Nudge Suggestions",
+    " RFM",
+    " Cohort Analysis",
+    " A/B Testing",
+    " RAG Insights (Coming Soon)"
+])
 
-# View toggle
-st.sidebar.markdown("### View By:")
-cohort_view = st.sidebar.selectbox("", ["Monthly", "Weekly"])
+# --- Upload Section (Always visible in sidebar) ---
+st.sidebar.markdown("#### Upload Data")
+uploaded_file = st.sidebar.file_uploader("📤 Upload CSV or Excel", type=["csv", "xlsx"])
 
-# Main Content
-st.markdown("## RetentionOS – Cohort Analysis")
-uploaded_file = st.file_uploader("📥 Upload your CSV or Excel file", type=["csv", "xlsx"])
+# View Switch (Only for Cohort for now)
+if section == "📅 Cohort Analysis":
+    view_option = st.sidebar.selectbox("View By:", ["Monthly", "Weekly"])
 
+# --- Load file ---
+df = None
 if uploaded_file:
     if uploaded_file.name.endswith(".xlsx"):
         df = pd.read_excel(uploaded_file)
     else:
         df = pd.read_csv(uploaded_file)
 
-    if "user_id" not in df.columns or "last_purchase_date" not in df.columns:
-        st.error("❌ Please ensure the file contains 'user_id' and 'last_purchase_date' columns.")
+    if 'last_purchase_date' in df.columns:
+        df['last_purchase_date'] = pd.to_datetime(df['last_purchase_date'], errors='coerce')
+
+# --- Section: Churn Analysis ---
+if section == "📉 Churn Analysis":
+    st.title("RetentionOS – Churn Analysis")
+    if df is not None:
+        st.write("### Coming Soon: Churn metrics, scoring, and analysis!")
     else:
-        df['last_purchase_date'] = pd.to_datetime(df['last_purchase_date'])
-        df['signup_date'] = df.groupby('user_id')['last_purchase_date'].transform('min')
+        st.info("Please upload a user data file to begin.")
 
-        if cohort_view == "Monthly":
-            df['signup_month'] = df['signup_date'].dt.to_period('M')
-            df['cohort_month'] = df['last_purchase_date'].dt.to_period('M')
-            cohort_index = (df['cohort_month'].dt.to_timestamp() - df['signup_month'].dt.to_timestamp()) // pd.Timedelta('30D')
-        else:
-            df['signup_week'] = df['signup_date'].dt.to_period('W')
-            df['cohort_week'] = df['last_purchase_date'].dt.to_period('W')
-            cohort_index = (df['cohort_week'].dt.start_time - df['signup_week'].dt.start_time).dt.days // 7
+# --- Section: User Segments ---
+elif section == "👥 User Segments":
+    st.title("RetentionOS – User Segmentation")
+    if df is not None:
+        st.write("### Coming Soon: Segment users by behavior and usage patterns!")
+    else:
+        st.info("Please upload a user data file to begin.")
 
-        cohort_col = 'signup_month' if cohort_view == "Monthly" else 'signup_week'
-        df['cohort_index'] = cohort_index
+# --- Section: Nudge Suggestions ---
+elif section == "💬 Nudge Suggestions":
+    st.title("RetentionOS – Nudge Suggestions")
+    if df is not None:
+        st.write("### Coming Soon: GPT-powered personalized nudges!")
+    else:
+        st.info("Please upload a user data file to begin.")
 
-        cohort_data = df.groupby([cohort_col, 'cohort_index'])['user_id'].nunique().unstack(fill_value=0)
-        cohort_sizes = cohort_data.iloc[:, 0]
-        retention = cohort_data.divide(cohort_sizes, axis=0).round(3) * 100
+# --- Section: RFM Analysis ---
+elif section == "📊 RFM":
+    st.title("RetentionOS – RFM Analysis")
+    if df is not None:
+        st.write("### Coming Soon: Recency, Frequency, Monetary analysis!")
+    else:
+        st.info("Please upload a user data file to begin.")
 
-        # Display Heatmap
-        st.markdown("### 📉 Retention Heatmap")
+# --- Section: Cohort Analysis ---
+elif section == "📅 Cohort Analysis":
+    st.title("RetentionOS – Cohort Analysis")
+
+    if df is not None and 'user_id' in df.columns and 'last_purchase_date' in df.columns:
+
+        df['order_period'] = df['last_purchase_date'].dt.to_period('M' if view_option == 'Monthly' else 'W').dt.to_timestamp()
+        df['cohort'] = df.groupby('user_id')['last_purchase_date'].transform('min')
+        df['cohort'] = df['cohort'].dt.to_period('M' if view_option == 'Monthly' else 'W').dt.to_timestamp()
+        cohort_data = df.groupby(['cohort', 'order_period']).agg(n_customers=('user_id', 'nunique')).reset_index()
+
+        cohort_pivot = cohort_data.pivot(index='cohort', columns='order_period', values='n_customers')
+        cohort_size = cohort_pivot.iloc[:, 0]
+        retention = cohort_pivot.divide(cohort_size, axis=0)
+
+        st.write("### Retention Heatmap")
         fig, ax = plt.subplots(figsize=(12, 6))
-        sns.heatmap(retention, annot=True, fmt=".0f", cmap="Blues", ax=ax)
-        plt.title(f"{cohort_view} Retention (%)")
+        sns.heatmap(retention, annot=True, fmt=".0%", cmap="Blues", cbar=False, ax=ax)
         st.pyplot(fig)
 
-        # Download
-        buffer = BytesIO()
-        fig.savefig(buffer, format="png")
-        st.download_button("⬇️ Download Heatmap", buffer.getvalue(), file_name="retention_heatmap.png")
+        # Export CSV
+        st.download_button("Download Retention Table as CSV", retention.to_csv().encode(), file_name="retention_matrix.csv", mime="text/csv")
+    else:
+        st.info("Please upload your CSV or Excel file with `user_id` and `last_purchase_date` columns to begin analysis.")
 
-else:
-    st.info("📤 Please upload your CSV or Excel file to begin analysis.")
+# --- Section: A/B Testing ---
+elif section == "🧪 A/B Testing":
+    st.title("RetentionOS – A/B Testing")
+    if df is not None:
+        st.write("### Coming Soon: A/B test analyzer and experiment dashboards!")
+    else:
+        st.info("Please upload a user data file to begin.")
+
+# --- Section: RAG Insights ---
+elif section == "🚦 RAG Insights (Coming Soon)":
+    st.title("RetentionOS – RAG Insights")
+    st.info("🚧 This feature is under development. Stay tuned!")
