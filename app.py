@@ -22,13 +22,13 @@ st.markdown("""
 # --- Sidebar Navigation ---
 st.sidebar.markdown("## 🌐 RetentionOS")
 section = st.sidebar.radio("Navigation", [
-    "📉 Churn Analysis",
-    "👥 User Segments",
-    "💬 Nudge Suggestions",
-    "📊 RFM",
-    "📆 Cohort Analysis",
-    "🧪 A/B Testing",
-    "🚦 RAG Insights (Coming Soon)"
+    " Churn Analysis",
+    " User Segments",
+    " Nudge Suggestions",
+    " RFM",
+    " Cohort Analysis",
+    " A/B Testing",
+    " RAG Insights (Coming Soon)"
 ])
 
 # --- Upload Section ---
