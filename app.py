@@ -1,68 +1,95 @@
-# RetentionOS - Clean Frontend Layout Setup (Streamlit)
-
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-from fuzzywuzzy import fuzz
 
-# Page config
 st.set_page_config(page_title="RetentionOS", layout="wide")
 
-# Sidebar Navigation
-st.sidebar.image("https://cdn-icons-png.flaticon.com/512/4149/4149643.png", width=60)
-st.sidebar.title("RetentionOS")
-section = st.sidebar.radio("Navigation", [
+# --- Custom CSS for gradient sidebar and main UI ---
+st.markdown("""
+    <style>
+    /* Sidebar gradient */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1f2c47, #0d1526);
+        color: white;
+    }
+
+    /* Sidebar title */
+    .sidebar .sidebar-content {
+        padding-top: 2rem;
+    }
+
+    /* Sidebar text styling */
+    .css-10trblm {
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        color: white !important;
+    }
+
+    /* File upload box styling */
+    .upload-container {
+        border: 2px solid #e5e5e5;
+        border-radius: 10px;
+        padding: 3rem;
+        text-align: center;
+        background-color: #f9f9f9;
+    }
+
+    .upload-btn {
+        background-color: white;
+        padding: 10px 30px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+        font-weight: 600;
+        margin-top: 1rem;
+        cursor: pointer;
+    }
+
+    .main-title {
+        font-size: 30px;
+        font-weight: 700;
+    }
+
+    .subtext {
+        font-size: 16px;
+        color: #666;
+        margin-bottom: 2rem;
+    }
+
+    .coming-soon {
+        font-size: 14px;
+        color: gray;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- Sidebar ---
+st.sidebar.markdown("## 🌐 RetentionOS")
+st.sidebar.markdown("### Navigation")
+st.sidebar.radio("Go to", [
     "📉 Churn Analysis",
-    "🧩 User Segments",
+    "👥 User Segments",
     "💬 Nudge Suggestions",
-    "📊 RFM Analysis",
-    "🚦 RAG Insights"
-])
+    "📊 RFM",
+    "📆 Cohort Analysis",
+    "🧪 A/B Testing",
+    "🚦 RAG Insights (Coming Soon)"
+], label_visibility="collapsed")
 
-# File Upload (top area)
-st.title("📊 RetentionOS – AI-powered Churn & Retention")
-st.markdown("Upload a `.csv` or `.xlsx` user file to get started with churn prediction & retention insights.")
+# --- Main Header ---
+st.markdown("<div class='main-title'>📊 RetentionOS – AI-powered Churn & Retention</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtext'>Upload your user file to get started with churn prediction & retention analysis.</div>", unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("Upload CSV or Excel file", type=["csv", "xlsx"])
+# --- Upload Box ---
+uploaded_file = st.file_uploader("", type=["csv", "xlsx"], label_visibility="collapsed")
 
-# Data Loading
 if uploaded_file:
-    try:
-        if uploaded_file.name.endswith(".xlsx"):
-            df = pd.read_excel(uploaded_file)
-        else:
-            df = pd.read_csv(uploaded_file)
-
-        st.session_state.df = df
-        st.success("✅ File uploaded successfully!")
-        st.markdown(f"**Detected columns:** `{', '.join(df.columns[:6])}` ...")
-
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
-
-elif 'df' not in st.session_state:
-    st.warning("⬆️ Please upload a user data file to begin.")
-
-# Section placeholders (actual logic will be added after layout setup)
-if 'df' in st.session_state:
-    df = st.session_state.df
-
-    if section == "📉 Churn Analysis":
-        st.header("📉 Churn Analysis")
-        st.info("This section will analyze churn risk based on user activity.")
-
-    elif section == "🧩 User Segments":
-        st.header("🧩 User Segments")
-        st.info("This section will group users into high/medium/low risk cohorts.")
-
-    elif section == "💬 Nudge Suggestions":
-        st.header("💬 AI-powered Nudge Suggestions")
-        st.info("Use GPT to generate personalized nudges for different segments.")
-
-    elif section == "📊 RFM Analysis":
-        st.header("📊 RFM Analysis")
-        st.info("Recency, Frequency, and Monetary segmentation coming soon.")
-
-    elif section == "🚦 RAG Insights":
-        st.header("🚦 RAG Insights")
-        st.info("GPT-based suggestions + insights powered by user segments.")
+    st.success(f"✅ File uploaded: `{uploaded_file.name}`")
+    df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
+    st.session_state.df = df
+else:
+    st.markdown("""
+        <div class='upload-container'>
+            <div style='font-size:50px;'>⬇️</div>
+            <div class='upload-btn'>Upload CSV or Excel</div>
+            <div style='margin-top:1rem;'>Upload your user file to get started with churn<br>prediction & retention analysis.</div>
+        </div>
+    """, unsafe_allow_html=True)
