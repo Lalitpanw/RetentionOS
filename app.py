@@ -63,11 +63,21 @@ elif 'df' not in st.session_state:
 
 # --- Home Page ---
 if section == "🏠 Home":
-    st.markdown("<h1 style='text-align:center;'>🚀 Welcome to RetentionOS</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center;'>Upload your user data and explore retention insights using AI-powered analysis.</p>", unsafe_allow_html=True)
-    st.image("https://via.placeholder.com/800x300?text=RetentionOS+Dashboard", use_column_width=True)
-    st.markdown("<p style='text-align:center;'>Use the sidebar to navigate to different analysis tools.</p>", unsafe_allow_html=True)
-    st.stop()  # ✅ Stops execution so no churn data loads
+    st.markdown("<h2 style='text-align: center;'>📥 Upload Your User Data File</h2>", unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("", type=["csv", "xlsx"])
+
+    if uploaded_file:
+        if uploaded_file.name.endswith('.xlsx'):
+            df = pd.read_excel(uploaded_file)
+        else:
+            df = pd.read_csv(uploaded_file)
+        st.session_state.df = df
+        st.success("✅ File uploaded and loaded successfully!")
+
+    elif 'df' not in st.session_state:
+        st.warning("⚠️ Please upload a valid file to proceed.")
+
+    st.stop()  # Stop here so no extra content is shown
 
 # Continue only if data exists
 if 'df' in st.session_state:
