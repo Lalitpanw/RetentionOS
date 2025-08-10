@@ -10,13 +10,13 @@ st.sidebar.title("📊 RetentionOS")
 section = st.sidebar.radio(
     "Navigation",
     [
-        "🏠 Home",
-        "📉 Churn Analysis",
-        "👥 User Segments",
-        "💬 Nudge Suggestions",
-        "📆 Cohort Analysis",
-        "🔍 RAG Insights",
-        "📤 Export Data"
+        " Home",
+        " Churn Analysis",
+        " User Segments",
+        " Nudge Suggestions",
+        " Cohort Analysis",
+        " RAG Insights",
+        " Export Data"
     ]
 )
 
