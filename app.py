@@ -12,19 +12,32 @@ openai.api_key = "your-openai-api-key"  # Replace this with your actual key
 
 # --- Page Setup ---
 st.set_page_config(page_title="RetentionOS", layout="wide")
+
+# --- Better Sidebar Styling ---
 st.markdown("""
     <style>
-    .css-1d391kg {background-color: #f4f4f4;}
     section[data-testid="stSidebar"] {
         background-color: #1f2937;
+        color: white;
     }
-    .sidebar-content { color: white !important; }
+    section[data-testid="stSidebar"] * {
+        color: white !important;
+    }
+    /* Highlight selected */
+    div[role="radiogroup"] > label[data-baseweb="radio"] {
+        border-radius: 5px;
+        padding: 4px 6px;
+    }
+    div[role="radiogroup"] > label[data-selected="true"] {
+        background-color: #374151;
+    }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # --- Sidebar Navigation ---
 st.sidebar.title("📊 RetentionOS")
 section = st.sidebar.radio("Navigation", [
+    "🏠 Home",
     "Churn Analysis",
     "User Segments",
     "Nudge Suggestions",
@@ -47,6 +60,14 @@ if uploaded_file:
 
 elif 'df' not in st.session_state:
     st.warning("⚠️ Please upload a valid file to proceed.")
+
+# --- Home Page ---
+if section == "🏠 Home":
+    st.markdown("<h1 style='text-align:center;'>🚀 Welcome to RetentionOS</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;'>Upload your user data and explore retention insights using AI-powered analysis.</p>", unsafe_allow_html=True)
+    st.image("https://via.placeholder.com/800x300?text=RetentionOS+Dashboard", use_column_width=True)
+    st.markdown("<p style='text-align:center;'>Use the sidebar to navigate to different analysis tools.</p>", unsafe_allow_html=True)
+    st.stop()  # ✅ Stops execution so no churn data loads
 
 # Continue only if data exists
 if 'df' in st.session_state:
@@ -184,4 +205,3 @@ if 'df' in st.session_state:
         st.header("📤 Download All Processed Data")
         st.dataframe(df)
         st.download_button("⬇️ Download CSV", data=df.to_csv(index=False), file_name="retention_data.csv")
-
