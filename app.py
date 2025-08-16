@@ -5,7 +5,7 @@ import plotly.express as px
 # --- Page Setup ---
 st.set_page_config(page_title="RetentionOS", page_icon="📊", layout="wide")
 
-# --- Sidebar Navigation with Buttons (No Emojis) ---
+# --- Sidebar Navigation ---
 st.sidebar.markdown("<h2 style='text-align:center; color:#4B8BBE;'>RetentionOS</h2>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 
@@ -23,12 +23,12 @@ sections = [
 if "section_index" not in st.session_state:
     st.session_state.section_index = 0
 
-# Create button menu
+# Sidebar buttons
 for i, title in enumerate(sections):
     if st.sidebar.button(title, key=f"nav_{i}"):
         st.session_state.section_index = i
 
-# Get the selected section
+# Get selected section
 section = sections[st.session_state.section_index]
 
 # --- HOME SECTION ---
@@ -129,13 +129,63 @@ elif section == "Cohort Analysis":
 # --- RAG INSIGHTS ---
 elif section == "RAG Insights":
     st.header("RAG Insights via GPT/LangChain")
-    st.info("This section will generate actionable insights using GPT/LangChain.")
 
-    if "risk_level" in df.columns:
+    if "risk_level" not in df.columns:
+        st.warning("⚠️ 'risk_level' column not found. Please add churn prediction results first.")
+    else:
+        # Count users by risk level
         high_risk_count = len(df[df["risk_level"]=="High"])
+        medium_risk_count = len(df[df["risk_level"]=="Medium"])
+        low_risk_count = len(df[df["risk_level"]=="Low"])
+
         st.write(f"High Risk Users Count: {high_risk_count}")
-        st.write("GPT Insight Placeholder: Offer targeted retention strategies for these users.")
-        # TODO: Integrate LangChain GPT for real insights
+        st.write(f"Medium Risk Users Count: {medium_risk_count}")
+        st.write(f"Low Risk Users Count: {low_risk_count}")
+
+        # Display placeholder while GPT generates insights
+        st.info("Generating actionable retention strategies using GPT...")
+
+        # --- GPT/LangChain Integration ---
+        try:
+            from langchain.llms import OpenAI
+            from langchain.prompts import PromptTemplate
+            from langchain.chains import LLMChain
+
+            # Initialize GPT
+            llm = OpenAI(temperature=0, model_name="gpt-4")  # Change to "gpt-3.5-turbo" if needed
+
+            # Prompt template
+            prompt_template = """
+            You are a product analyst. You have the following user data summary:
+
+            High Risk Users Count: {high_risk_count}
+            Medium Risk Users Count: {medium_risk_count}
+            Low Risk Users Count: {low_risk_count}
+
+            Generate actionable retention strategies for each category. Be specific and practical.
+            """
+
+            prompt = PromptTemplate(
+                input_variables=["high_risk_count", "medium_risk_count", "low_risk_count"],
+                template=prompt_template
+            )
+
+            # LLM Chain
+            chain = LLMChain(llm=llm, prompt=prompt)
+
+            # Run the chain
+            insight = chain.run(
+                high_risk_count=high_risk_count,
+                medium_risk_count=medium_risk_count,
+                low_risk_count=low_risk_count
+            )
+
+            st.subheader("Actionable GPT Insights")
+            st.write(insight)
+
+        except Exception as e:
+            st.error(f"Error generating GPT insights: {e}")
+            st.info("Ensure you have set your OpenAI API key and installed langchain.")
 
 # --- EXPORT DATA ---
 elif section == "Export Data":
