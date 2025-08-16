@@ -142,7 +142,6 @@ elif section == "RAG Insights":
         st.write(f"Medium Risk Users Count: {medium_risk_count}")
         st.write(f"Low Risk Users Count: {low_risk_count}")
 
-        # Display placeholder while GPT generates insights
         st.info("Generating actionable retention strategies using GPT...")
 
         # --- GPT/LangChain Integration ---
@@ -152,9 +151,8 @@ elif section == "RAG Insights":
             from langchain.chains import LLMChain
 
             # Initialize GPT
-            llm = OpenAI(temperature=0, model_name="gpt-4")  # Change to "gpt-3.5-turbo" if needed
+            llm = OpenAI(temperature=0, model_name="gpt-4")
 
-            # Prompt template
             prompt_template = """
             You are a product analyst. You have the following user data summary:
 
@@ -170,10 +168,8 @@ elif section == "RAG Insights":
                 template=prompt_template
             )
 
-            # LLM Chain
             chain = LLMChain(llm=llm, prompt=prompt)
 
-            # Run the chain
             insight = chain.run(
                 high_risk_count=high_risk_count,
                 medium_risk_count=medium_risk_count,
@@ -182,6 +178,23 @@ elif section == "RAG Insights":
 
             st.subheader("Actionable GPT Insights")
             st.write(insight)
+
+            # --- Projected Churn Reduction & Revenue Recovery ---
+            total_users = len(df)
+            high_risk_impact = 0.20  # 20% reduction
+            medium_risk_impact = 0.10  # 10% reduction
+
+            projected_churn_reduction = (
+                (high_risk_count * high_risk_impact + medium_risk_count * medium_risk_impact)
+                / total_users * 100
+            )
+            st.success(f"📈 Projected Churn Reduction: {projected_churn_reduction:.2f}%")
+
+            # Revenue Recovery (Example ARPU ₹50)
+            arpu = 50
+            recovered_users = high_risk_count * high_risk_impact + medium_risk_count * medium_risk_impact
+            projected_revenue = recovered_users * arpu
+            st.success(f"💰 Projected Revenue Recovery: ₹{projected_revenue:,.0f} per month")
 
         except Exception as e:
             st.error(f"Error generating GPT insights: {e}")
